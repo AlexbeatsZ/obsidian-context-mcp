@@ -14,7 +14,7 @@ file operations and recoverable writes. Windows/STEM is the only deployment.
 
 # Active Work
 
-- Local implementation and STEM UI checks complete; final deployed parser/recovery status recheck and packaging pending.
+- Local implementation, final deployed parser/recovery status checks and packaging complete. The last inverse-move proposal displayed the expected link diffs and was entirely rejected; no files changed.
 - After authorization, create dedicated Tunnel `Obsidian Context MCP — STEM Windows`, alias `obsidian-context-stem-win`; attach ChatGPT and verify real read + propose. Do not call first-version end-to-end acceptance complete before those calls.
 - QA fixtures and proposals are in `STEM/MCP验收测试`; retain evidence in `.local/qa`. Do not change course notes for write tests.
 
