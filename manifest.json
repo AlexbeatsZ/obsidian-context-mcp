@@ -1,0 +1,5 @@
+{
+  "id": "obsidian-context-mcp", "name": "Obsidian Context MCP", "version": "0.1.0",
+  "minAppVersion": "1.12.0", "description": "Share note context with MCP clients and review proposed file changes.",
+  "author": "Meta", "isDesktopOnly": true
+}

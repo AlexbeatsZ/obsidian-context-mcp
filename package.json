@@ -1,0 +1,32 @@
+{
+  "name": "obsidian-context-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && node scripts/build.mjs",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "check": "npm test && npm run build",
+    "deploy": "node scripts/deploy.mjs",
+    "mcp": "node dist/mcp.cjs",
+    "tunnel:start": "node scripts/tunnel.mjs start",
+    "tunnel:status": "node scripts/tunnel.mjs status",
+    "tunnel:stop": "node scripts/tunnel.mjs stop"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@codemirror/merge": "^6.11.2",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "diff": "^8.0.2",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@codemirror/state": "6.5.0",
+    "@codemirror/view": "6.38.6",
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.5",
+    "obsidian": "1.13.1",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.3"
+  }
+}

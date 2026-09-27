@@ -1,0 +1,20 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+const project=path.resolve(import.meta.dirname,'..');
+const local=path.join(project,'.local');const action=process.argv[2];
+const config=JSON.parse(await fs.readFile(path.join(local,'tunnel.json'),'utf8'));
+if(!['start','status','stop'].includes(action))throw new Error('Use start, status or stop');
+const readEnv=text=>Object.fromEntries(text.split(/\r?\n/).filter(l=>/^\s*[\w]+\s*=/.test(l)).map(l=>{const i=l.indexOf('=');let v=l.slice(i+1).trim();if((v.startsWith('"')&&v.endsWith('"'))||(v.startsWith("'")&&v.endsWith("'")))v=v.slice(1,-1);return [l.slice(0,i).trim(),v];}));
+const source=readEnv(await fs.readFile(config.credential_source,'utf8'));
+const env={...process.env,CONTROL_PLANE_API_KEY:source.OPENAI_API_KEY};delete env.OPENAI_API_KEY;
+if(source.TUNNEL_HTTP_PROXY)env.HTTPS_PROXY=source.TUNNEL_HTTP_PROXY;
+const common=['--profile-dir',path.join(local,'tunnel').replaceAll('\\','/')];
+let args;
+if(action==='start'){
+  if(!config.tunnel_id)throw new Error('Configure the dedicated tunnel_id after reviewing the new connection.');
+  const command=`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${path.join(project,'scripts','start-mcp.ps1').replaceAll('\\','/')}"`;
+  args=['runtimes','connect','--alias',config.alias,'--profile',config.alias,'--tunnel-id',config.tunnel_id,'--mcp-command',command,...common];
+}else args=['runtimes',action==='status'?'status':'disconnect',config.alias];
+const child=spawn(config.client,args,{cwd:project,env,windowsHide:true,stdio:'inherit'});
+child.on('error',e=>{console.error(e.message);process.exitCode=1;});child.on('exit',code=>{process.exitCode=code??1;});
