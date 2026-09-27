@@ -1,5 +1,6 @@
 import { materialize, type Hunk } from "./core";
-import type { PreparedOperation } from "./engine";
+import { diffLines } from "diff";
+import type { PreparedOperation, Proposal } from "./engine";
 
 export interface InlineHunk { id:string; from:number; to:number; replacement:string; }
 // CodeMirror normalizes line breaks, while stored baselines retain their bytes.
@@ -23,4 +24,25 @@ export function firstPendingOffset(baseline:string,hunks:Hunk[]){
     else if(h.decision==="pending")return cmText(baseline.slice(0,h.start)).length+shift;
   }
   return 0;
+}
+
+export function pickReviewHost(proposal:Proposal,available:readonly string[],preferred?:string|null):string|null {
+  const existing=new Set(available);
+  const pendingEdit=proposal.operations.find(op=>op.input.kind==="edit"&&op.input.path.endsWith(".md")&&op.hunks.some(h=>h.decision==="pending")&&existing.has(op.input.path));
+  if(pendingEdit)return pendingEdit.input.path;
+  const sourceNote=proposal.operations.find(op=>op.input.kind!=="create"&&op.input.path.endsWith(".md")&&existing.has(op.input.path));
+  if(sourceNote)return sourceNote.input.path;
+  return preferred&&existing.has(preferred)?preferred:available[0]??null;
+}
+
+export interface ChangedLines {oldText:string;newText:string;}
+export function changedLinePairs(before:string,after:string):ChangedLines[] {
+  const output:ChangedLines[]=[];let oldText="",newText="";
+  const flush=()=>{if(oldText||newText)output.push({oldText,newText});oldText="";newText="";};
+  for(const part of diffLines(before,after)){
+    if(part.removed)oldText+=part.value;
+    else if(part.added)newText+=part.value;
+    else flush();
+  }
+  flush();return output;
 }

@@ -7,10 +7,10 @@ import { ReviewEngine } from "./engine";
 import { PluginService } from "./service";
 import { ContextTracker } from "./context";
 import { startPluginServer } from "./http";
-import { REVIEW_VIEW, ReviewView } from "./review";
 import { InlineReview } from "./inline-review";
 
 const DEFAULT_PROJECT="C:/Users/Meta/Project/Workspaces/obsidian-context-mcp";
+const LEGACY_REVIEW_VIEW="obsidian-context-mcp-review";
 export default class ContextPlugin extends Plugin {
   project="";engine!:ReviewEngine;context!:ContextTracker;connected=false;
   private stop:(()=>Promise<void>)|null=null;
@@ -27,10 +27,9 @@ export default class ContextPlugin extends Plugin {
       if(path.resolve(root).toLowerCase()!==path.resolve(config.root).toLowerCase())return;
       const port=new ObsidianPort(this.app,root);this.engine=new ReviewEngine(port,path.join(this.project,".local"),config.vault);
       await this.engine.load(false);this.context=new ContextTracker(this.app,port,config.vault);
-      this.inline=new InlineReview(this.app,this.engine,id=>this.openManager(id),()=>this.context.pauseForReview());
+      this.inline=new InlineReview(this.app,this.engine,()=>this.context.pauseForReview(),()=>this.context.last?.path??null);
       this.registerEditorExtension(this.inline.extension());
-      this.registerView(REVIEW_VIEW,leaf=>new ReviewView(leaf,this.engine,this.project,(id,p)=>this.inline!.open(id,p)));
-      this.engine.onChange=()=>{this.inline?.refresh();this.app.workspace.getLeavesOfType(REVIEW_VIEW).forEach(l=>{if(l.view instanceof ReviewView)l.view.render();});};
+      this.engine.onChange=()=>this.inline?.refresh();
       const resumeContext=(event:Event)=>{const target=event.target;if(target instanceof Element&&!target.closest(".ocm-inline-block, .ocm-inline-toolbar"))this.context.resumeForUserEdit();};
       this.registerDomEvent(document,"pointerdown",resumeContext,true);
       this.registerDomEvent(document,"keydown",resumeContext,true);
@@ -47,24 +46,19 @@ export default class ContextPlugin extends Plugin {
       // Vault/editor hydration completes after plugin onload; preflight sooner
       // falsely treats restored files as missing. Do not await layout in onload.
       this.app.workspace.onLayoutReady(()=>{void (async()=>{
+        this.app.workspace.detachLeavesOfType(LEGACY_REVIEW_VIEW);
         await this.engine.validatePending();this.context.captureLeaf();
         const service=new PluginService(port,this.engine,n=>this.context.get(n));
         const runtime=await startPluginServer(path.join(this.project,".local"),config.vault,root,async(name,args)=>{
-          const result=await service.call(name,args);if(name==="obsidian_propose_changes"&&"proposal_id" in result)await this.openReview(String(result.proposal_id));return result;
+          const result=await service.call(name,args);
+          if(name==="obsidian_propose_changes"&&"proposal_id" in result)void this.openReview(String(result.proposal_id)).catch(e=>new Notice(`无法打开审阅：${(e as Error).message}`,8000));
+          return result;
         });
         this.stop=runtime.close;this.connected=true;const status=this.addStatusBarItem();status.setText("笔记 MCP 已连接");status.onclick=()=>this.openReview();
       })().catch(e=>{new Notice(`笔记 MCP 未连接：${e.message}`,10000);console.error("Obsidian Context MCP",e);});});
     }catch(e){new Notice(`笔记 MCP 未连接：${(e as Error).message}`,10000);console.error("Obsidian Context MCP",e);}
   }
-  async openReview(id?:string){if(!this.engine){new Notice("请先检查笔记 MCP 的项目配置。");return;}if(await this.inline?.open(id))return;await this.openManager(id);}
-  async openManager(id?:string){
-    let leaf=this.app.workspace.getLeavesOfType(REVIEW_VIEW)[0];
-    if(!leaf){leaf=this.app.workspace.getLeaf("tab");await leaf.setViewState({type:REVIEW_VIEW,active:true});}
-    await leaf.loadIfDeferred();
-    if(!(leaf.view instanceof ReviewView))throw new Error("审阅视图未能加载");
-    if(id)leaf.view.select(id);
-    await this.app.workspace.revealLeaf(leaf);
-  }
+  async openReview(id?:string){if(!this.engine){new Notice("请先检查笔记 MCP 的项目配置。");return;}await this.inline?.open(id);}
   onunload(){this.connected=false;this.inline?.close();if(this.stop)void this.stop();}
 }
 class ContextSettings extends PluginSettingTab {

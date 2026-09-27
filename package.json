@@ -19,7 +19,6 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@codemirror/merge": "^6.11.2",
     "@lezer/markdown": "^1.6.4",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "diff": "^8.0.2",

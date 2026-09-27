@@ -15,8 +15,10 @@ npm run deploy -- C:/Users/Meta/Documents/Obsidian/STEM
 Reload Obsidian, or enable **Obsidian Context MCP** in community plugins. Its
 settings store the local project directory outside synced plugin data.
 Markdown edits appear in the note itself: original lines are tinted red and
-candidate lines appear below in green, with local Accept/Reject buttons. Use
-the compare icon or **审阅候选修改** for proposal history and file operations.
+candidate lines appear below in green, with local Accept/Reject buttons. New
+files, moves, linked changes, attachments and trash also appear in the note as
+compact review blocks. The compare icon and **审阅候选修改** command reopen this
+inline review; there is no separate review tab.
 
 ## Local MCP
 

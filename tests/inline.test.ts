@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ReviewEngine } from "../src/engine";
-import { inlineHunks, firstPendingOffset } from "../src/inline-model";
+import { inlineHunks, firstPendingOffset, pickReviewHost, changedLinePairs } from "../src/inline-model";
 import { materialize } from "../src/core";
 import { MemoryVault } from "./support";
 import { temporary } from "./temp";
@@ -39,4 +39,22 @@ test("inline empty-note insertion and deletion remain actionable without candida
   assert.deepEqual(inlineHunks(empty,""),[{id:"h1",from:0,to:0,replacement:"新增😀\n"}]);
   const deletion:any={input:{kind:"edit"},baseline:{text:"删去\n"},hunks:[{id:"h1",start:0,end:3,replacement:"",decision:"pending"}]};
   assert.deepEqual(inlineHunks(deletion,"删去\n"),[{id:"h1",from:0,to:3,replacement:""}]);deletion.restored=true;assert.deepEqual(inlineHunks(deletion,"删去\n"),[]);
+});
+
+test("file operations review inside an existing note while Markdown edits use their source",()=>{
+  const available=["笔记/当前.md","笔记/源.md"];
+  const create:any={operations:[{input:{kind:"create",path:"笔记/新建.md"}}]};
+  const move:any={operations:[{input:{kind:"move",path:"笔记/源.md",to:"笔记/新路径.md"}}]};
+  const edit:any={operations:[{input:{kind:"edit",path:"笔记/源.md"},hunks:[{decision:"pending"}]}]};
+  assert.equal(pickReviewHost(create,available,"笔记/当前.md"),"笔记/当前.md");
+  assert.equal(pickReviewHost(move,available,"笔记/当前.md"),"笔记/源.md");
+  assert.equal(pickReviewHost(edit,available,"笔记/当前.md"),"笔记/源.md");
+  assert.equal(pickReviewHost(create,available,"笔记/不存在.md"),"笔记/当前.md");
+  assert.equal(pickReviewHost(create,[],null),null);
+});
+
+test("linked move preview shows changed lines without unrelated note content",()=>{
+  assert.deepEqual(changedLinePairs("开头\n[[旧名|别名]]\n结尾\n","开头\n[[新名|别名]]\n结尾\n"),[
+    {oldText:"[[旧名|别名]]\n",newText:"[[新名|别名]]\n"}
+  ]);
 });

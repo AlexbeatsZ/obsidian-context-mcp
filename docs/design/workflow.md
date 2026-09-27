@@ -5,7 +5,7 @@ reading, candidate submission and status only. Neither the HTTP dispatcher nor
 the MCP bridge exposes accept, restore, shell or unrestricted filesystem calls.
 
 Context survives blur, but explicit selection clearing in the note is recorded.
-Review leaves are excluded from current-note tracking. Reading selections are
+Programmatic review navigation is excluded from current-note tracking. Reading selections are
 rendered text without fabricated source offsets. Revisions use full editor text
 when available, otherwise a fresh Vault read. Text positions are 1-based lines,
 0-based UTF-16 columns; CRLF and trailing newlines are preserved.
@@ -43,15 +43,22 @@ the only offset adjustment; any other document change hides stale decorations
 and the existing engine blocks acceptance. Inline navigation preserves the last
 user context until a real pointer/key interaction in a note resumes tracking.
 
-The note toolbar has proposal title, file selector when needed, Accept all,
-Reject all and proposal history. Explanatory guidance is omitted. New files,
-attachments and linked moves still use operation cards, and non-Markdown text
-uses the read-only CodeMirror merge view. These retain group approval and local
-recovery; inline link previews must not enable partial acceptance of a move.
+The note toolbar has a proposal selector, a file selector for multi-note edits,
+Accept all, Reject all and Recovery when applicable. Explanatory guidance is
+omitted. New files, non-Markdown edits, attachments, linked moves and trash use
+compact block widgets at the top of an existing Markdown note. The source note
+hosts moves/trash of Markdown files; otherwise the last user note hosts the
+block. Candidate file bytes never enter that host note's document. A linked
+move shows changed lines from every affected note in the same block and exposes
+only whole-operation approval. Empty-vault fallback reports that a note is
+needed for review; Windows STEM always has Markdown notes.
 
-The manager leaf can be deferred after an Obsidian reload. Proposal persistence
-must not depend on rendering a background leaf: redraw loaded manager views
-only, and await `loadIfDeferred()` before selecting a proposal in the manager.
+There is no separate review view or CodeMirror Merge pane. On load, the plugin
+detaches leaves of the retired view type. Proposal persistence and the MCP
+response do not depend on successful local navigation or rendering. Reopening
+the command/ribbon shows the newest pending proposal; the toolbar selector can
+also revisit completed proposals for recovery. When a local decision finishes
+all remaining operations, the inline review block closes.
 
 Visual reference: Smart Composer Apply Edit, specifically full-note flow,
 removed text above added text and controls beside each change. Its model/chat
