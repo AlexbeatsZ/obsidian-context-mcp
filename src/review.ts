@@ -14,11 +14,11 @@ export class ReviewView extends ItemView {
   getIcon(){return "git-compare-arrows";}
   async onOpen(){this.render();}
   async onClose(){this.destroyEditors();}
-  select(id:string){this.selected=id;this.render();}
+  select(id:string){this.selected=id;this.contentEl.scrollTop=0;this.render();}
   private destroyEditors(){for(const e of this.editors)e.destroy();this.editors=[];}
   private button(parent:HTMLElement,label:string,run:()=>Promise<unknown>|void,disabled=false){const b=parent.createEl("button",{text:label});b.disabled=disabled||this.busy;b.addEventListener("click",async()=>{this.busy=true;b.disabled=true;try{await run();}catch(e){new Notice((e as Error).message,8000);}finally{this.busy=false;this.render();}});return b;}
   render(){
-    this.destroyEditors();const root=this.contentEl;root.empty();root.addClass("ocm-review");
+    const root=this.contentEl,scrollTop=root.scrollTop;this.destroyEditors();root.empty();root.addClass("ocm-review");
     const heading=root.createDiv({cls:"ocm-heading"});heading.createEl("h2",{text:"待审阅修改"});heading.createSpan({text:"STEM · 本机已连接",cls:"ocm-connection"});
     const proposals=[...this.engine.proposals.values()].sort((a,b)=>b.created_at.localeCompare(a.created_at));
     if(!proposals.length){root.createEl("p",{text:"在 AI 客户端提出修改后，在这里查看并接受。",cls:"ocm-empty"});return;}
@@ -27,17 +27,20 @@ export class ReviewView extends ItemView {
     if(!this.selected||!this.engine.proposals.has(this.selected))this.selected=proposals[0].id;
     picker.value=this.selected;picker.onchange=()=>{this.selected=picker.value;this.render();};
     const p=this.engine.get(this.selected);const bar=root.createDiv({cls:"ocm-toolbar"});
+    if(p.recovery_error)root.createDiv({text:`恢复已停止：${p.recovery_error}`,cls:"ocm-error"});
     this.button(bar,"全部接受",()=>this.engine.decideAll(p.id,"accepted"));this.button(bar,"全部拒绝",()=>this.engine.decideAll(p.id,"rejected"));
     this.button(bar,this.split?"统一视图":"双栏视图",()=>{this.split=!this.split;});
-    this.button(bar,"恢复已应用修改",()=>this.engine.recover(p.id),!p.operations.some(o=>o.recovery_ids.length));
+    this.button(bar,"恢复已应用修改",()=>this.engine.recover(p.id),!p.operations.some(o=>o.recovery_ids.length&&!o.restored));
     root.createDiv({text:"接受后立即生效；关联链接与移动操作一起处理。",cls:"ocm-guidance"});
     for(const op of p.operations)this.renderOperation(root,p,op);
+    root.scrollTop=scrollTop;
   }
   private renderOperation(root:HTMLElement,p:Proposal,op:PreparedOperation) {
     const card=root.createDiv({cls:"ocm-operation"});const header=card.createDiv({cls:"ocm-file-header"});
     const label={edit:"编辑",create:"新建",move:"移动 / 重命名",trash:"放入回收站"}[op.input.kind];
     header.createSpan({text:label,cls:"ocm-kind"});header.createEl("strong",{text:op.input.path});
     if(op.input.kind==="move")header.createSpan({text:`→ ${op.input.to}`});
+    if(op.input.kind==="move"&&op.baseline?.kind==="attachment")card.createEl("p",{text:`${op.input.path.split(".").pop()!.toUpperCase()} 附件 · ${op.baseline.size.toLocaleString()} 字节 · ${new Date(op.baseline.mtime).toLocaleString()}`,cls:"ocm-guidance"});
     const pending=this.engine.pending(op);
     if(op.error)card.createDiv({text:op.error,cls:"ocm-error"});
     const actions=card.createDiv({cls:"ocm-actions"});
@@ -57,10 +60,10 @@ export class ReviewView extends ItemView {
       if(op.baseline?.text)card.createEl("pre",{text:op.baseline.text.slice(0,2000)});
       card.createEl("p",{text:op.references.length?`引用此文件的笔记：${op.references.join("、")}`:"没有找到引用此文件的笔记。"});
     }
-    if(!pending)card.createDiv({text:op.input.kind==="edit"?"该文件已完成审阅。":op.decision==="accepted"?"已应用":"已拒绝",cls:"ocm-result"});
+    if(!pending)card.createDiv({text:op.restored?"已恢复，请重新生成候选。":op.input.kind==="edit"?"该文件已完成审阅。":op.decision==="accepted"?"已应用":"已拒绝",cls:"ocm-result"});
   }
   private diff(parent:HTMLElement,base:string,candidate:string){
-    const mount=parent.createDiv({cls:"ocm-diff"});const extensions=[EditorState.readOnly.of(true),EditorView.editable.of(false),lineNumbers(),EditorView.lineWrapping];
+    const mount=parent.createDiv({cls:"ocm-diff"});const extensions=[EditorState.readOnly.of(true),EditorView.editable.of(false),EditorState.phrases.of({"$ unchanged lines":"$ 行未修改"}),lineNumbers(),EditorView.lineWrapping];
     if(this.split)this.editors.push(new MergeView({parent:mount,a:{doc:base,extensions},b:{doc:candidate,extensions},highlightChanges:true,collapseUnchanged:{margin:3,minSize:8}}));
     else this.editors.push(new EditorView({parent:mount,doc:candidate,extensions:[...extensions,unifiedMergeView({original:base,mergeControls:false,highlightChanges:true,collapseUnchanged:{margin:3,minSize:8}})]}));
   }

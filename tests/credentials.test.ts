@@ -1,0 +1,2 @@
+import test from "node:test";import assert from "node:assert/strict";import { stripRuntimeSecrets } from "../src/credentials";
+test("MCP environment excludes tunnel credentials and both proxy casings",()=>{const env={PATH:"node",OBSIDIAN_MCP_PROJECT:"project",CONTROL_PLANE_API_KEY:"secret",OPENAI_API_KEY:"secret",OPENAI_ADMIN_KEY:"secret",HTTPS_PROXY:"proxy",http_proxy:"proxy",all_proxy:"proxy",NO_PROXY:"proxy",TUNNEL_HTTP_PROXY:"proxy"};assert.deepEqual(stripRuntimeSecrets(env),{PATH:"node",OBSIDIAN_MCP_PROJECT:"project"});assert.equal(env.OPENAI_API_KEY,"secret");});

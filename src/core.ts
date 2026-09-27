@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
+import fs from "node:fs/promises";
 import { diffLines } from "diff";
 import { fail, type Edit, type Point } from "./protocol";
 
@@ -15,7 +16,6 @@ export function safePath(input: string, allowRoot = false): string {
   return p;
 }
 export async function assertRealPath(root: string, input: string) {
-  const fs = await import("node:fs/promises");
   const p = safePath(input);
   const canonicalRoot = await fs.realpath(root);
   let current = canonicalRoot;
@@ -82,6 +82,6 @@ export interface VaultPort {
   move(p: string, to: string, expected: string): Promise<Snapshot>;
   trash(p: string, expected: string): Promise<void>;
   backup(p: string): Promise<Uint8Array>;
-  restore(p: string, bytes: Uint8Array): Promise<void>;
+  restore(p: string, bytes: Uint8Array, expected: string|null): Promise<void>;
   validate(p: string): Promise<void>;
 }

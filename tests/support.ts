@@ -15,5 +15,5 @@ export class MemoryVault implements VaultPort {
   async move(p:string,to:string,expected:string){if(this.exists(to))fail("CONFLICT",to);if((await this.read(p)).revision!==expected)fail("CONFLICT",p);const data=this.data.get(p)!;this.data.delete(p);this.data.set(to,data);this.writes.push(`move:${p}`);return this.read(to);}
   async trash(p:string,expected:string){if((await this.read(p)).revision!==expected)fail("CONFLICT",p);this.trashFiles.set(p,this.data.get(p)!.bytes);this.data.delete(p);this.writes.push(`trash:${p}`);}
   async backup(p:string){return this.data.get(p)!.bytes;}
-  async restore(p:string,bytes:Uint8Array){this.set(p,bytes);}
+  async restore(p:string,bytes:Uint8Array,expected:string|null){if(expected===null?this.exists(p):!this.exists(p)||(await this.read(p)).revision!==expected)fail("CONFLICT",p);this.set(p,bytes);}
 }

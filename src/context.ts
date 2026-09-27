@@ -39,7 +39,8 @@ export class ContextTracker {
   }
   async get(nearby:number):Promise<ContextData> {
     const open:string[]=[];this.app.workspace.iterateAllLeaves(l=>{if(l.view instanceof MarkdownView&&l.view.file)open.push(l.view.file.path);});
-    const base:ContextData={vault:this.vaultId,context_id:this.last?.id??randomUUID(),captured_at:this.last?.time??new Date().toISOString(),path:null,mode:null,source:"last_note_snapshot",revision:null,selections:[],open_notes:[...new Set(open)],recent_notes:this.recent,linked_notes:[]};
+    const recent=[...new Set([...this.recent,...this.app.workspace.getLastOpenFiles()])].filter(p=>p.endsWith(".md")&&this.port.exists(p)).slice(0,15);
+    const base:ContextData={vault:this.vaultId,context_id:this.last?.id??randomUUID(),captured_at:this.last?.time??new Date().toISOString(),path:null,mode:null,source:this.last?"last_note_snapshot":"no_active_note",revision:null,selections:[],open_notes:[...new Set(open)],recent_notes:recent,linked_notes:[]};
     if(!this.last)return base;
     if(!this.port.exists(this.last.path)){this.last=null;return base;}
     const s=await this.port.read(this.last.path);const lines=s.text!.split("\n");const line=this.last.cursor?.line??this.last.selections[0]?.from?.line??1;

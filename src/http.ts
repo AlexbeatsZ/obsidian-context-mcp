@@ -10,8 +10,8 @@ export async function startPluginServer(localRoot:string,vault:string,root:strin
   const token=randomBytes(32).toString("hex");
   const server=http.createServer(async(req,res)=>{
     res.setHeader("Content-Type","application/json; charset=utf-8"); res.setHeader("Cache-Control","no-store");
-    const provided=req.headers.authorization??""; const expected="Bearer "+token;
-    if(req.headers.origin || provided.length!==expected.length || !timingSafeEqual(Buffer.from(provided),Buffer.from(expected))) {res.writeHead(401).end(JSON.stringify({error:{code:"UNAUTHORIZED",message:"需要有效配对。"}}));return;}
+    const provided=Buffer.from(req.headers.authorization??""); const expected=Buffer.from("Bearer "+token);
+    if(req.headers.origin || provided.length!==expected.length || !timingSafeEqual(provided,expected)) {res.writeHead(401).end(JSON.stringify({error:{code:"UNAUTHORIZED",message:"需要有效配对。"}}));return;}
     if(req.method!=="POST"||req.url!=="/rpc"){res.writeHead(404).end();return;}
     let size=0;const chunks:Buffer[]=[];
     try {

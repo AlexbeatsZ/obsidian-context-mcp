@@ -46,3 +46,12 @@ and restoration are UI-only. Pairing tokens rotate every plugin load.
 Text changes are line hunks. Adjacent changes form one hunk. Accepting a hunk
 writes immediately; rejected hunks keep their original content. Status queries
 do not wake a ChatGPT turn or push unsolicited messages.
+
+Proposal states: `awaiting_user_review`, `partially_applied`, `completed`,
+`conflict`, `restored`, `recovery_conflict`. Operation states also include `accepted`, `rejected`,
+`partially_accepted`; recovered accepted hunks become `restored`, and unhandled
+hunks cancelled by proposal recovery become `cancelled`. Applied steps remain
+in the result as historical evidence after recovery.
+`recovered_steps` identifies the journal steps actually reversed. A stopped
+recovery reports `recovery_error`; accepted steps already reversed remain
+visible after plugin restart.

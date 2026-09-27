@@ -14,7 +14,7 @@ const MAX_TEXT=32*1024;
 export class PluginService {
   constructor(public vault:VaultPort, public engine:ReviewEngine, public context:ContextProvider) {}
   async call(name:string,raw:unknown):Promise<object> {
-    if(!(name in schemas))fail("UNKNOWN_TOOL","不支持该操作。");
+    if(!Object.hasOwn(schemas,name))fail("UNKNOWN_TOOL","不支持该操作。");
     switch(name as ToolName) {
       case "obsidian_get_context": { const a=schemas.obsidian_get_context.parse(raw); return this.context(a.nearby_lines); }
       case "obsidian_list_files": {

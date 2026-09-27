@@ -9,13 +9,18 @@
     "check": "npm test && npm run build",
     "deploy": "node scripts/deploy.mjs",
     "mcp": "node dist/mcp.cjs",
+    "package": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1",
+    "rollback": "node scripts/rollback.mjs",
     "tunnel:start": "node scripts/tunnel.mjs start",
     "tunnel:status": "node scripts/tunnel.mjs status",
     "tunnel:stop": "node scripts/tunnel.mjs stop"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@codemirror/merge": "^6.11.2",
+    "@lezer/markdown": "^1.6.4",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "diff": "^8.0.2",
     "zod": "^4.5.4"

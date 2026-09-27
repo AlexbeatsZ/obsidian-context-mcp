@@ -1,19 +1,17 @@
 import path from "node:path";
+import { parser } from "@lezer/markdown";
 import type { Snapshot, VaultPort } from "./core";
 
 interface Token { start: number; end: number; target: string; wiki: boolean; }
 export function linkTokens(text: string): Token[] {
   // Mask code without changing offsets (including CRLF), then match source links.
-  let fence:{char:string;length:number}|null=null;
-  const masked = text.split(/(?<=\n)/).map(line=>{
-    const marker=/^\s{0,3}(`{3,}|~{3,})/.exec(line);
-    if(fence) {if(marker&&marker[1][0]===fence.char&&marker[1].length>=fence.length)fence=null;return line.replace(/[^\r\n]/g," ");}
-    if(marker){fence={char:marker[1][0],length:marker[1].length};return line.replace(/[^\r\n]/g," ");}
-    return line;
-  }).join("").replace(/(`+)[^\r\n]*?\1/g, m => " ".repeat(m.length));
+  const tree=parser.parse(text),code:{from:number;to:number}[]=[];
+  tree.iterate({enter(node){if(["FencedCode","CodeBlock","InlineCode"].includes(node.name)){code.push({from:node.from,to:node.to});return false;}}});
+  let masked=text;for(const range of code.reverse())masked=masked.slice(0,range.from)+masked.slice(range.from,range.to).replace(/[^\r\n]/g," ")+masked.slice(range.to);
   const tokens: Token[]=[];
   const wiki=/!?\[\[([^\]\n]+)\]\]/g;
   for (const m of masked.matchAll(wiki)) {
+    if((masked.slice(0,m.index).match(/\\+$/)?.[0].length??0)%2)continue;
     const target=m[1].split("|")[0]; const start=m.index!+m[0].indexOf("[[")+2;
     tokens.push({start,end:start+target.length,target,wiki:true});
   }
@@ -23,6 +21,9 @@ export function linkTokens(text: string): Token[] {
     const start=m.index!+m[0].indexOf("](")+2+(raw.startsWith("<")?1:0);
     tokens.push({start,end:start+target.length,target,wiki:false});
   }
+  tree.iterate({enter(node){if(node.name==="URL"&&node.node.parent?.name==="LinkReference"){
+    const raw=text.slice(node.from,node.to);const angled=raw.startsWith("<");const target=angled?raw.slice(1,-1):raw;const start=node.from+(angled?1:0);tokens.push({start,end:start+target.length,target,wiki:false});
+  }}});
   return tokens.sort((a,b)=>a.start-b.start);
 }
 export interface LinkChange { snapshot: Snapshot; candidate: string; }
@@ -60,7 +61,7 @@ export async function referencesTo(vault: VaultPort, target: string) {
   const results:string[]=[];
   for (const f of vault.files().filter(f=>f.path.endsWith(".md"))) {
     const s=await vault.read(f.path);
-    if (linkTokens(s.text!).some(t=>vault.resolve(t.target.split("#")[0],f.path)===target)) results.push(f.path);
+    if (linkTokens(s.text!).some(t=>{let raw=t.target.split("#")[0];if(!t.wiki)try{raw=decodeURIComponent(raw.replace(/\\([ ()])/g,"$1"));}catch{}return vault.resolve(raw,f.path)===target;})) results.push(f.path);
   }
   return results;
 }

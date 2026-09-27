@@ -13,6 +13,7 @@
 .ocm-diff .cm-gutters { background: var(--background-secondary); color: var(--text-muted); border-color: var(--background-modifier-border); }
 .ocm-diff .cm-deletedChunk { background: rgba(var(--color-red-rgb), .12); }
 .ocm-diff .cm-insertedLine { background: rgba(var(--color-green-rgb), .12); }
+.ocm-diff .cm-collapsedLines { background: var(--background-secondary); color: var(--text-muted); border-color: var(--background-modifier-border); }
 .ocm-hunk { border-left: 3px solid var(--background-modifier-border); padding: 8px 12px; margin: 12px 0; }
 .ocm-hunk button { margin-right: 8px; }
 .ocm-hunk pre { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }

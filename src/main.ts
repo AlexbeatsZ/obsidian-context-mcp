@@ -24,11 +24,11 @@ export default class ContextPlugin extends Plugin {
       const root=this.app.vault.adapter.getBasePath();
       if(path.resolve(root).toLowerCase()!==path.resolve(config.root).toLowerCase())return;
       const port=new ObsidianPort(this.app,root);this.engine=new ReviewEngine(port,path.join(this.project,".local"),config.vault);
-      await this.engine.load();this.context=new ContextTracker(this.app,port,config.vault);
+      await this.engine.load(false);this.context=new ContextTracker(this.app,port,config.vault);
       this.registerView(REVIEW_VIEW,leaf=>new ReviewView(leaf,this.engine,this.project));
       this.engine.onChange=()=>this.app.workspace.getLeavesOfType(REVIEW_VIEW).forEach(l=>(l.view as ReviewView).render());
       this.registerEditorExtension(EditorView.updateListener.of(update=>{
-        if(update.docChanged||update.selectionSet){const info=update.state.field(editorInfoField,false);if(info)this.context.capture(info);if(update.docChanged&&info?.file)void this.engine.invalidate(info.file.path);}
+        if(update.docChanged||update.selectionSet){const info=update.state.field(editorInfoField,false);if(info&&document.hasFocus())this.context.capture(info);if(update.docChanged&&info?.file)void this.engine.invalidate(info.file.path);}
       }));
       this.registerEvent(this.app.workspace.on("active-leaf-change",()=>this.context.captureLeaf()));
       this.registerEvent(this.app.workspace.on("editor-change",(_,info)=>{this.context.capture(info);if(info.file)void this.engine.invalidate(info.file.path);}));
@@ -37,12 +37,16 @@ export default class ContextPlugin extends Plugin {
       this.registerEvent(this.app.vault.on("rename",(f,old)=>{void this.engine.invalidate(old);this.context.captureLeaf();}));
       this.registerDomEvent(document,"selectionchange",()=>this.context.captureReadingSelection(document));
       this.registerDomEvent(window,"blur",()=>this.context.captureLeaf());
-      this.app.workspace.onLayoutReady(()=>this.context.captureLeaf());
-      const service=new PluginService(port,this.engine,n=>this.context.get(n));
-      const runtime=await startPluginServer(path.join(this.project,".local"),config.vault,root,async(name,args)=>{
-        const result=await service.call(name,args);if(name==="obsidian_propose_changes"&&"proposal_id" in result)await this.openReview(String(result.proposal_id));return result;
-      });
-      this.stop=runtime.close;this.connected=true;const status=this.addStatusBarItem();status.setText("笔记 MCP 已连接");status.onclick=()=>this.openReview();
+      // Vault/editor hydration completes after plugin onload; preflight sooner
+      // falsely treats restored files as missing. Do not await layout in onload.
+      this.app.workspace.onLayoutReady(()=>{void (async()=>{
+        await this.engine.validatePending();this.context.captureLeaf();
+        const service=new PluginService(port,this.engine,n=>this.context.get(n));
+        const runtime=await startPluginServer(path.join(this.project,".local"),config.vault,root,async(name,args)=>{
+          const result=await service.call(name,args);if(name==="obsidian_propose_changes"&&"proposal_id" in result)await this.openReview(String(result.proposal_id));return result;
+        });
+        this.stop=runtime.close;this.connected=true;const status=this.addStatusBarItem();status.setText("笔记 MCP 已连接");status.onclick=()=>this.openReview();
+      })().catch(e=>{new Notice(`笔记 MCP 未连接：${e.message}`,10000);console.error("Obsidian Context MCP",e);});});
     }catch(e){new Notice(`笔记 MCP 未连接：${(e as Error).message}`,10000);console.error("Obsidian Context MCP",e);}
   }
   async openReview(id?:string){if(!this.engine){new Notice("请先检查笔记 MCP 的项目配置。");return;}let leaf=this.app.workspace.getLeavesOfType(REVIEW_VIEW)[0];if(!leaf){leaf=this.app.workspace.getLeaf("tab");await leaf.setViewState({type:REVIEW_VIEW,active:true});}if(id)(leaf.view as ReviewView).select(id);await this.app.workspace.revealLeaf(leaf);}

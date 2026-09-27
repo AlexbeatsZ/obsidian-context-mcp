@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { randomUUID, createHash } from "node:crypto";
-import { applyEdits, isText, makeHunks, materialize, safePath, type Decision, type Hunk, type Snapshot, type VaultPort } from "./core";
+import { applyEdits, isText, makeHunks, materialize, revision, safePath, type Decision, type Hunk, type Snapshot, type VaultPort } from "./core";
 import { fail, type Operation, type ProposalInput } from "./protocol";
 import { planMoveLinks, referencesTo, type LinkChange } from "./links";
 import { DiskStore } from "./store";
@@ -10,10 +10,13 @@ export interface PreparedOperation {
   id: string; input: Operation; baseline?: Snapshot; candidate?: string; hunks: Hunk[];
   links: LinkChange[]; references: string[]; decision: Decision; error?: string;
   expected_revision?: string; applied_steps: string[]; recovery_ids: string[];
+  restored?: boolean;
+  recovered_steps?: string[];
 }
 export interface Proposal {
   id: string; request_id: string; fingerprint: string; title: string; vault: string;
   created_at: string; operations: PreparedOperation[];
+  recovery_error?: string;
 }
 interface Journal {
   id: string; proposal_id: string; operation_id: string; kind: "write"|"create"|"move"|"trash";
@@ -30,27 +33,32 @@ export class ReviewEngine {
     this.journals=new DiskStore(path.join(localRoot,"journals",vaultId));
   }
   private enqueue<T>(fn:()=>Promise<T>):Promise<T> { const job=this.serial.then(fn); this.serial=job.catch(()=>{}); return job; }
-  async load() {
+  async load(validate=true) {
     for(const p of await this.store.all<Proposal>()) this.proposals.set(p.id,p);
-    const interrupted=(await this.journals.all<Journal>()).filter(j=>j.state==="prepared");
+    const journalRecords=await this.journals.all<Journal>();
+    const restoredIds=new Set(journalRecords.filter(j=>j.state==="restored").map(j=>j.id));
+    for(const p of this.proposals.values())for(const op of p.operations){
+      op.recovered_steps=op.recovery_ids.filter(id=>restoredIds.has(id));
+      if(op.recovery_ids.length&&op.recovered_steps.length===op.recovery_ids.length){op.restored=true;if(op.error==="已恢复该提案的文件，请重新生成候选。")delete op.error;}
+    }
+    const interrupted=journalRecords.filter(j=>j.state==="prepared");
     for(const j of interrupted) {
       // Never replay an interrupted write blindly; preserve its baseline and block.
       j.state="uncertain"; await this.journals.write(j.id,j);
       const p=this.proposals.get(j.proposal_id); const op=p?.operations.find(o=>o.id===j.operation_id);
       if(p&&op) { op.error="上次提交被中断，请检查恢复记录后重新生成候选。"; await this.save(p); }
     }
-    for(const p of this.proposals.values()) for(const op of p.operations) if(this.pending(op)&&!op.error) {
-      try { await this.preflight(op); } catch(e) { op.error=String((e as Error).message); await this.save(p); }
-    }
+    if(validate)await this.validatePending();
   }
+  validatePending(){return this.enqueue(async()=>{for(const p of this.proposals.values())for(const op of p.operations)if(this.pending(op)&&!op.error){try{await this.preflight(op);}catch(e){op.error=(e as Error).message;await this.save(p);}}});}
   async save(p:Proposal) { await this.store.write(p.id,p); this.onChange(); }
-  pending(op:PreparedOperation) { return op.input.kind==="edit"?op.hunks.some(h=>h.decision==="pending"):op.decision==="pending"; }
+  pending(op:PreparedOperation) { return !op.restored&&(op.input.kind==="edit"?op.hunks.some(h=>h.decision==="pending"):op.decision==="pending"); }
   get(id:string) { return this.proposals.get(id)??fail("NOT_FOUND","找不到该候选修改。"); }
   status(id:string) {
     const p=this.get(id); const items=p.operations.map(op=>({operation_id:op.id,kind:op.input.kind,path:op.input.path,to:op.input.kind==="move"?op.input.to:undefined,
-      status:op.error?"conflict":this.pending(op)?"awaiting_user_review":op.hunks.length?op.hunks.every(h=>h.decision==="accepted")?"accepted":op.hunks.every(h=>h.decision==="rejected")?"rejected":"partially_accepted":op.decision,
-      hunks:op.hunks.map(h=>({hunk_id:h.id,status:h.decision})),error:op.error,applied_steps:op.applied_steps,recovery_ids:op.recovery_ids,revision:op.expected_revision}));
-    return {vault:this.vaultId,proposal_id:p.id,title:p.title,status:items.some(o=>o.error)?"conflict":items.some(o=>o.status==="awaiting_user_review")?(items.some(o=>o.applied_steps.length)?"partially_applied":"awaiting_user_review"):"completed",operations:items};
+      status:op.restored?"restored":op.error?"conflict":this.pending(op)?"awaiting_user_review":op.hunks.length?op.hunks.every(h=>h.decision==="accepted")?"accepted":op.hunks.every(h=>h.decision==="rejected")?"rejected":"partially_accepted":op.decision,
+      hunks:op.hunks.map(h=>({hunk_id:h.id,status:op.restored?(h.decision==="accepted"?"restored":h.decision==="pending"?"cancelled":h.decision):h.decision})),error:op.error,applied_steps:op.applied_steps,recovery_ids:op.recovery_ids,recovered_steps:op.recovered_steps??[],revision:op.expected_revision}));
+    return {vault:this.vaultId,proposal_id:p.id,title:p.title,status:p.recovery_error?"recovery_conflict":items.every(o=>o.status==="restored")?"restored":items.some(o=>o.error)?"conflict":items.some(o=>o.status==="awaiting_user_review")?(items.some(o=>o.applied_steps.length)?"partially_applied":"awaiting_user_review"):"completed",recovery_error:p.recovery_error,operations:items};
   }
   propose(input:ProposalInput) { return this.enqueue(async()=>{
     const fingerprint=createHash("sha256").update(JSON.stringify(input)).digest("hex");
@@ -105,11 +113,13 @@ export class ReviewEngine {
   }
   decide(id:string,opId:string,decision:Exclude<Decision,"pending">,hunkId?:string) { return this.enqueue(async()=>{
     const p=this.get(id); const op=p.operations.find(o=>o.id===opId)??fail("NOT_FOUND","找不到操作。");
+    if(decision==="accepted"&&p.recovery_error)fail("RECOVERY_REQUIRED",p.recovery_error);
     try { await this.decideInternal(p,op,decision,hunkId); } catch(e) { op.error=(e as Error).message; await this.save(p); throw e; }
     return this.status(id);
   }); }
   decideAll(id:string,decision:Exclude<Decision,"pending">) { return this.enqueue(async()=>{
     const p=this.get(id);
+    if(decision==="accepted"&&p.recovery_error)fail("RECOVERY_REQUIRED",p.recovery_error);
     if(decision==="accepted") for(const op of p.operations.filter(o=>this.pending(o))) {
       try { await this.preflight(op); } catch(e) { op.error=(e as Error).message; await this.save(p); throw e; }
     }
@@ -162,17 +172,34 @@ export class ReviewEngine {
     const p=this.get(id); const records=(await this.journals.all<Journal>()).filter(j=>j.proposal_id===id&&j.state!=="restored");
     // Revert in the recorded execution order, never silently overwrite later work.
     const order=p.operations.flatMap(o=>o.recovery_ids); records.sort((a,b)=>order.indexOf(b.id)-order.indexOf(a.id));
-    for(const j of records) {
+    try{for(const j of records) {
       const target=j.kind==="move"?j.to!:j.path;
-      if(j.state==="uncertain") fail("RECOVERY_REQUIRED","中断步骤需要先检查当前文件和本地备份，不能自动覆盖。");
+      if(j.state==="uncertain") {
+        // Reconcile only exact before/intended states; later edits remain blocked.
+        const source=this.vault.exists(j.path)?await this.vault.read(j.path):undefined;
+        const destination=j.kind==="move"&&this.vault.exists(target)?await this.vault.read(target):undefined;
+        const unchanged=j.before?source?.revision===j.before.revision:!source;
+        if(unchanged&&!destination){j.state="restored";await this.journals.write(j.id,j);await this.recordRecovery(p,j);continue;}
+        if(j.kind==="write"||j.kind==="create") {
+          if(!source||j.intended_text===undefined||source.revision!==revision(j.intended_text))fail("RECOVERY_REQUIRED","中断步骤的文件无法匹配原文或候选，请检查本地备份。");
+          j.after=source;
+        } else if(j.kind==="move") {
+          if(source||!destination||destination.revision!==j.before?.revision)fail("RECOVERY_REQUIRED","中断移动的路径或内容发生变化，请检查本地备份。");
+          j.after=destination;
+        } else if(source)fail("RECOVERY_REQUIRED","中断删除的文件发生变化，请检查本地备份。");
+        j.state="applied";await this.journals.write(j.id,j);
+      }
       if(j.after) { const current=await this.vault.read(target); if(current.revision!==j.after.revision)fail("CONFLICT",`${target} 已在提交后改变，无法自动恢复。`); }
       else if(this.vault.exists(target)) fail("CONFLICT",`${target} 已重新出现，无法覆盖。`);
       if(j.kind==="create") await this.vault.trash(target,j.after!.revision);
       else if(j.kind==="move") { if(this.vault.exists(j.path))fail("CONFLICT","原路径已存在。"); await this.vault.move(target,j.path,j.after!.revision); }
-      else if(j.backup) await this.vault.restore(j.path,await fs.readFile(j.backup));
+      else if(j.backup) await this.vault.restore(j.path,await fs.readFile(j.backup),j.after?.revision??null);
       j.state="restored"; await this.journals.write(j.id,j);
-    }
-    for(const op of p.operations)op.error="已恢复该提案的文件，请重新生成候选。";
+      await this.recordRecovery(p,j);
+    }}catch(e){p.recovery_error=(e as Error).message;await this.save(p);throw e;}
+    for(const op of p.operations){op.restored=true;delete op.error;}
+    delete p.recovery_error;
     await this.save(p);
   }); }
+  private async recordRecovery(p:Proposal,j:Journal){const op=p.operations.find(o=>o.id===j.operation_id)!;op.recovered_steps=[...new Set([...(op.recovered_steps??[]),j.id])];if(op.recovered_steps.length===op.recovery_ids.length)op.restored=true;await this.save(p);}
 }

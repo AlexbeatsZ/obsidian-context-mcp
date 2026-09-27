@@ -51,9 +51,12 @@ export class ObsidianPort implements VaultPort {
   }
   async trash(p:string,expected:string) {await this.validate(p);if((await this.read(p)).revision!==expected)fail("CONFLICT","删除目标已改变。");await this.app.vault.trash(this.file(p),false);}
   async backup(p:string) {const s=await this.read(p);return s.kind==="text"?Buffer.from(s.text!,"utf8"):new Uint8Array(await this.app.vault.readBinary(this.file(p)));}
-  async restore(p:string,bytes:Uint8Array) {
+  async restore(p:string,bytes:Uint8Array,expected:string|null) {
     await this.validate(p);
-    if(this.exists(p)){const s=await this.read(p);if(s.kind==="text")await this.write(p,s.revision,Buffer.from(bytes).toString("utf8"));else await this.app.vault.modifyBinary(this.file(p),Uint8Array.from(bytes).buffer);}
-    else {await this.parents(p);await this.app.vault.createBinary(p,Uint8Array.from(bytes).buffer);}
+    if(this.exists(p)){
+      const s=await this.read(p);if(expected===null||s.revision!==expected)fail("CONFLICT","恢复前文件已改变。");
+      if(s.kind==="text")await this.write(p,expected,Buffer.from(bytes).toString("utf8"));
+      else {const f=this.file(p);if((await this.read(p)).revision!==expected)fail("CONFLICT","恢复前附件已改变。");await this.app.vault.modifyBinary(f,Uint8Array.from(bytes).buffer);}
+    } else {if(expected!==null)fail("CONFLICT","恢复前文件已消失。");await this.parents(p);if(this.exists(p))fail("CONFLICT","恢复目标已出现。");await this.app.vault.createBinary(p,Uint8Array.from(bytes).buffer);}
   }
 }
