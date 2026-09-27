@@ -27,5 +27,5 @@ test("portable Tunnel launcher removes credentials before starting MCP",async t=
   await fs.writeFile(path.join(root,"dist","mcp.cjs"),"process.stdout.write(JSON.stringify({project:process.env.OBSIDIAN_MCP_PROJECT,secret:process.env.CONTROL_PLANE_API_KEY,proxy:process.env.HTTPS_PROXY}))");
   const run=spawnSync(process.execPath,[path.join(root,"scripts","start-mcp.mjs")],{encoding:"utf8",env:{...process.env,CONTROL_PLANE_API_KEY:"test-secret",HTTPS_PROXY:"http://test-proxy"}});
   assert.equal(run.status,0,run.stderr);
-  assert.deepEqual(JSON.parse(run.stdout),{project:root});
+  assert.deepEqual(JSON.parse(run.stdout),{project:await fs.realpath(root)});
 });
