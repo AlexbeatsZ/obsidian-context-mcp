@@ -13,7 +13,10 @@ const common=['--profile-dir',path.join(local,'tunnel').replaceAll('\\','/')];
 let args;
 if(action==='start'){
   if(!config.tunnel_id)throw new Error('Configure the dedicated tunnel_id after reviewing the new connection.');
-  const command=`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${path.join(project,'scripts','start-mcp.ps1').replaceAll('\\','/')}"`;
+  const executable=process.execPath.replaceAll('\\','/');
+  const launcher=path.join(project,'scripts','start-mcp.mjs').replaceAll('\\','/');
+  if(executable.includes('"')||launcher.includes('"'))throw new Error('Invalid MCP launcher path');
+  const command=`"${executable}" "${launcher}"`;
   args=['runtimes','connect','--alias',config.alias,'--profile',config.alias,'--tunnel-id',config.tunnel_id,'--mcp-command',command,...common];
 }else args=['runtimes',action==='status'?'status':'disconnect',config.alias];
 const child=spawn(config.client,args,{cwd:project,env,windowsHide:true,stdio:'inherit'});

@@ -9,7 +9,7 @@
     "check": "npm test && npm run build",
     "deploy": "node scripts/deploy.mjs",
     "mcp": "node dist/mcp.cjs",
-    "package": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1",
+    "package": "node scripts/package.mjs",
     "rollback": "node scripts/rollback.mjs",
     "tunnel:start": "node scripts/tunnel.mjs start",
     "tunnel:status": "node scripts/tunnel.mjs status",
@@ -29,6 +29,7 @@
     "@codemirror/view": "6.38.6",
     "@types/node": "^24.0.0",
     "esbuild": "^0.25.5",
+    "fflate": "^0.8.3",
     "obsidian": "1.13.1",
     "tsx": "^4.20.0",
     "typescript": "^5.8.3"

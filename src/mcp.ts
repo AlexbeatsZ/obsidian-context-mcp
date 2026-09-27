@@ -6,13 +6,14 @@ import { z } from "zod";
 import { AppError, descriptions, schemas, type ToolName } from "./protocol";
 import type { Endpoint } from "./http";
 import { stripRuntimeSecrets } from "./credentials";
+import { sameVaultRoot } from "./platform";
 
 export interface BridgeConfig { localRoot:string; vault:string; root:string; }
 export async function bridgeCall(config:BridgeConfig,name:ToolName,args:unknown) {
   let endpoint:Endpoint;
   try{endpoint=JSON.parse(await fs.readFile(path.join(config.localRoot,"endpoints",config.vault+".json"),"utf8"));}
   catch{throw new AppError("OBSIDIAN_OFFLINE","请打开 STEM 并启用 Obsidian Context MCP。");}
-  if(endpoint.protocol!==1||endpoint.vault!==config.vault||path.resolve(endpoint.root).toLowerCase()!==path.resolve(config.root).toLowerCase()||endpoint.host!=="127.0.0.1"||!Number.isInteger(endpoint.port)||endpoint.port<1||endpoint.port>65535||!/^[a-f\d]{64}$/.test(endpoint.token)) throw new AppError("PAIRING_MISMATCH","配对记录与所配置仓库不一致。");
+  if(endpoint.protocol!==1||endpoint.vault!==config.vault||!await sameVaultRoot(endpoint.root,config.root)||endpoint.host!=="127.0.0.1"||!Number.isInteger(endpoint.port)||endpoint.port<1||endpoint.port>65535||!/^[a-f\d]{64}$/.test(endpoint.token)) throw new AppError("PAIRING_MISMATCH","配对记录与所配置仓库不一致。");
   let response:Response;
   try {response=await fetch(`http://127.0.0.1:${endpoint.port}/rpc`,{method:"POST",headers:{Authorization:"Bearer "+endpoint.token,"Content-Type":"application/json"},body:JSON.stringify({name,arguments:args}),signal:AbortSignal.timeout(20000)});}
   catch{throw new AppError("OBSIDIAN_OFFLINE","Obsidian 未响应，请检查插件连接状态。");}

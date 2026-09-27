@@ -8,15 +8,15 @@ import { PluginService } from "./service";
 import { ContextTracker } from "./context";
 import { startPluginServer } from "./http";
 import { InlineReview } from "./inline-review";
+import { defaultProjectDir, sameVaultRoot } from "./platform";
 
-const DEFAULT_PROJECT="C:/Users/Meta/Project/Workspaces/obsidian-context-mcp";
 const LEGACY_REVIEW_VIEW="obsidian-context-mcp-review";
 export default class ContextPlugin extends Plugin {
   project="";engine!:ReviewEngine;context!:ContextTracker;connected=false;
   private stop:(()=>Promise<void>)|null=null;
   private inline:InlineReview|null=null;
   async onload(){
-    this.project=this.app.loadLocalStorage("obsidian-context-mcp.project")??DEFAULT_PROJECT;
+    this.project=this.app.loadLocalStorage("obsidian-context-mcp.project")??defaultProjectDir();
     this.addSettingTab(new ContextSettings(this.app,this));
     this.addCommand({id:"open-review",name:"审阅候选修改",callback:()=>this.openReview()});
     this.addRibbonIcon("git-compare-arrows","审阅候选修改",()=>this.openReview());
@@ -24,7 +24,7 @@ export default class ContextPlugin extends Plugin {
     try{
       const config=JSON.parse(await fs.readFile(path.join(this.project,".local","config.json"),"utf8")) as {vault:string;root:string};
       const root=this.app.vault.adapter.getBasePath();
-      if(path.resolve(root).toLowerCase()!==path.resolve(config.root).toLowerCase())return;
+      if(!await sameVaultRoot(root,config.root))return;
       const port=new ObsidianPort(this.app,root);this.engine=new ReviewEngine(port,path.join(this.project,".local"),config.vault);
       await this.engine.load(false);this.context=new ContextTracker(this.app,port,config.vault);
       this.inline=new InlineReview(this.app,this.engine,()=>this.context.pauseForReview(),()=>this.context.last?.path??null);

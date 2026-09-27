@@ -1,6 +1,6 @@
 # 使用、部署与恢复
 
-本次只部署 Windows 的 STEM。插件不连接模型，也不保存模型 API key。
+Windows 和 macOS 分别部署各自本机的 STEM。插件不连接模型，也不保存模型 API key。
 
 ## 启动与读取
 
@@ -65,6 +65,12 @@ npm run rollback
 首次安装的回滚会关闭本插件；已有插件的回滚恢复备份版本。
 执行部署或回滚后在 Obsidian 重新加载，让内存中的插件与文件一致。
 
+macOS 在 `/Users/meta/Project/Workspaces/obsidian-context-mcp` 执行相同的
+`npm ci`、`npm run check`、`npm run package`，以
+`npm run deploy -- /Users/meta/Documents/Obsidian/STEM` 部署。Mac 的 `.local`
+独立保存配对、提案和恢复副本；不要从 Windows 复制。`node scripts/call.mjs list`
+与 `node scripts/call.mjs obsidian_get_context` 用于本机 MCP 验证。
+
 ## 专用 Tunnel
 
 `.local/tunnel.json` 只保存现有 tunnel-client 路径、凭据源路径、独立 alias 和
@@ -80,3 +86,9 @@ ChatGPT 中的 [Obsidian Context MCP — STEM Windows](https://chatgpt.com/plugi
 已连接此专用 Tunnel。元数据变更后刷新工具信息。2026-09-27 的网页聊天
 已真实完成读取、候选提交和状态查询；提案仍须在 Obsidian 本地接受。连接中
 没有接受、恢复、命令执行或任意本机文件访问工具。
+
+Mac 需要独立 Tunnel ID、`obsidian-context-stem-mac` alias 和 ChatGPT 应用。
+配置保存在 Mac 项目的 `.local/tunnel.json`；`client` 指向本机已有的
+`tunnel-client`，`credential_source` 指向本机已有凭据源。填入新建的 Mac
+`tunnel_id` 后，仍用 `npm run tunnel:start/status/stop` 管理。运行凭据只传给
+Tunnel client，`scripts/start-mcp.mjs` 启动 MCP 前清理凭据及代理。

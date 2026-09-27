@@ -1,0 +1,26 @@
+# macOS runtime and deployment
+
+The macOS target is the local STEM vault at
+`/Users/meta/Documents/Obsidian/STEM`. Its plugin files may arrive through Vault
+sync, but its MCP pairing, proposals, journals, backups and Tunnel profile live
+in the Mac's own `/Users/meta/Project/Workspaces/obsidian-context-mcp/.local`.
+Never copy the Windows `.local` directory or reuse its Tunnel ID. Manage and
+mobile vaults are outside this deployment.
+
+The plugin's project default follows the host home directory. The deployed
+project writes the canonical Vault root into local config; the plugin and stdio
+bridge compare canonical roots, folding case only on Windows. This accepts path
+aliases without weakening macOS's case-sensitive identity. The local listener
+remains on `127.0.0.1` with a fresh token per plugin lifetime.
+
+The `npm run package` command builds the same three-file ZIP on both hosts.
+The portable Tunnel entrypoint is `scripts/start-mcp.mjs`, launched with an
+absolute host-native Node path. It removes control-plane credentials and proxy
+variables before starting `dist/mcp.cjs`. The old PowerShell launcher remains
+only for an already-registered Windows runtime until that runtime is refreshed.
+
+The Mac Tunnel must have its own alias, profile directory, remote Tunnel ID and
+ChatGPT app. Associate it with the same intended Personal/Xia scope as the
+Windows app, but do not transfer a runtime key into the Vault or Git. Local
+MCP discovery and real read calls precede remote connection. Actual ChatGPT
+availability requires tool discovery and a real call through the Mac Tunnel.

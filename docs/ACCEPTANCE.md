@@ -53,3 +53,9 @@
 启动的项目 runtime，使用前运行 `npm run tunnel:start`；当前状态已复查为 `ready`。
 远端创建的测试提案在本次复查时已由本地审阅接受；新的两项界面测试候选均
 被拒绝，没有写入目标文件。
+
+## macOS STEM 适配
+
+Mac 上已确认 Apple Silicon、Node/npm 和 STEM Vault；同步中已有插件安装文件，
+但缺少独立的项目运行目录。跨平台路径、打包和 Tunnel 启动代码已准备好。
+Mac 本机 MCP、Obsidian 界面和独立 ChatGPT Tunnel 的实测结果在部署后记录。

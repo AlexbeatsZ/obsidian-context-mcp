@@ -12,8 +12,17 @@ npm run check
 npm run deploy -- C:/Users/Meta/Documents/Obsidian/STEM
 ```
 
+On macOS, use the Mac checkout and Vault paths instead:
+
+```sh
+cd /Users/meta/Project/Workspaces/obsidian-context-mcp
+npm ci
+npm run check
+npm run deploy -- /Users/meta/Documents/Obsidian/STEM
+```
+
 Reload Obsidian, or enable **Obsidian Context MCP** in community plugins. Its
-settings store the local project directory outside synced plugin data.
+settings use a host-local project directory outside synced plugin data.
 Markdown edits appear in the note itself: original lines are tinted red and
 candidate lines appear below in green, with local Accept/Reject buttons. New
 files, moves, linked changes, attachments and trash also appear in the note as
@@ -23,7 +32,7 @@ inline review; there is no separate review tab.
 ## Local MCP
 
 `npm run mcp` starts stdio. For a coding-agent client use command `node` with
-the absolute argument `C:/Users/Meta/Project/Workspaces/obsidian-context-mcp/dist/mcp.cjs`
+the absolute argument `<local-project>/dist/mcp.cjs`
 and `OBSIDIAN_MCP_PROJECT` set to that project directory.
 No model API key is required by this server. Obsidian must be open and paired.
 
@@ -43,6 +52,8 @@ The dedicated ChatGPT app is connected at
 [Obsidian Context MCP — STEM Windows](https://chatgpt.com/plugins/plugin_asdk_app_6ab8ea1ed0b88191a8ff5e04e29bf2f8).
 Start the runtime before using it; refresh ChatGPT tool metadata after schema
 changes. The web chat has completed real read, propose and status calls.
+The Mac uses a separate Tunnel ID and ChatGPT app; see
+[macOS design](docs/design/macos.md) and [operations](docs/OPERATIONS.md).
 
 ## Review and restore
 

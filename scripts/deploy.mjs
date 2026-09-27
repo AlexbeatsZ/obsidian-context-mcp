@@ -12,6 +12,6 @@ await fs.mkdir(target,{recursive:true});
 for(const name of ['main.js','manifest.json','styles.css'])await fs.copyFile(path.join(project,name),path.join(target,name));
 await fs.mkdir(path.join(project,'.local'),{recursive:true});
 await fs.writeFile(path.join(project,'.local','config.json'),JSON.stringify({vault:'stem',root},null,2));
-const enabled=JSON.parse(await fs.readFile(enabledFile,'utf8'));if(!enabled.includes(id))enabled.push(id);
-await fs.writeFile(enabledFile,JSON.stringify(enabled,null,2)+'\n');
+const enabled=JSON.parse(await fs.readFile(enabledFile,'utf8'));
+if(!enabled.includes(id)){enabled.push(id);await fs.writeFile(enabledFile,JSON.stringify(enabled,null,2)+'\n');}
 console.log(`Deployed ${id} to ${root}; reload/enable it in Obsidian. Backup: ${backup}`);
