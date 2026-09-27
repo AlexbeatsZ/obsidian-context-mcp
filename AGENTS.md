@@ -10,6 +10,7 @@ local STEM vault; no Manage or mobile deployment.
 - 43 meaningful tests, type checking and production build pass on both hosts. Independent stdio clients discover all six tools.
 - Windows real UI verifies source/rendered selections, browser blur, clear selection, inline review for Markdown edits and file operations, partial accepts, conflict blocking, create, linked move, attachment rename, trash and local restoration. The former full-page review view was removed. Mac UI review remains unverified.
 - Dedicated Tunnel `tunnel_6ab8e356341081918c02253bec374df6` is connected to the Xia ChatGPT app. A real web chat completed context/read, proposal and status calls; runtime status was `ready` at the last check.
+- On 2026-09-28 the Windows runtime was found `stopped` after ChatGPT reported `McpServerError: Session terminated`; local stdio still returned the selected text. `npm run tunnel:start` restored `ready`, and the same ChatGPT chat successfully called `obsidian_get_context`. The underlying exit trigger is not established; see `docs/ACCEPTANCE.md` and `docs/OPERATIONS.md`.
 - Separate Mac Tunnel `tunnel_6ab9425b741081919d5a7ba1f10a3641` and ChatGPT app are connected. Mac local and web context/search/read/propose/status calls passed; Mac UI candidate approval and recovery still require real acceptance. See `docs/ACCEPTANCE.md`.
 - No model API calls and no remote approval endpoint.
 - Design index: `docs/design/workflow.md`, `docs/design/macos.md`, `docs/API.md`; operations: `docs/OPERATIONS.md`; evidence: `docs/ACCEPTANCE.md`.

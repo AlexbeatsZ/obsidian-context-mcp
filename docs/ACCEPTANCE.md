@@ -54,6 +54,13 @@
 远端创建的测试提案在本次复查时已由本地审阅接受；新的两项界面测试候选均
 被拒绝，没有写入目标文件。
 
+2026-09-28 故障复测：用户在[原聊天](https://chatgpt.com/g/g-p-6a9e26c0ed3c8191ac5bdd6c9f745791-hua-xue-dong-li-xue/c/6ab94861-5834-83e8-a00c-55b237672992)
+读取划线内容时收到 `McpServerError: Session terminated`。本机独立 stdio
+调用仍返回该笔记的非空选区，而 `tunnel:status` 为 `stopped`。运行
+`npm run tunnel:start` 后状态为 `ready`；同一聊天重新调用上下文工具成功，
+返回正确笔记路径并确认选区非空。确认的断点是 Windows 专用 Tunnel 已停止；
+尚无日志证明它为何退出。
+
 ## macOS STEM 适配
 
 日期：2026-09-28。Mac 为 Apple Silicon；项目位于

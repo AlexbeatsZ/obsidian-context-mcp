@@ -82,6 +82,13 @@ npm run tunnel:status
 npm run tunnel:stop
 ```
 
+如果 ChatGPT 报 `McpServerError: Session terminated`，先在对应机器的项目
+目录运行 `npm run tunnel:status`。若为 `stopped`，运行
+`npm run tunnel:start`，再请 ChatGPT 重试原调用。本机可用
+`node scripts/call.mjs obsidian_get_context` 区分 Tunnel 中断与 Obsidian
+插件离线。`ready` 仅表示 runtime 已连接，仍要用一次真实 ChatGPT 工具调用
+确认恢复。Tunnel 是按需启动的项目 runtime，不保证重启或退出后自动恢复。
+
 ChatGPT 中的 [Obsidian Context MCP — STEM Windows](https://chatgpt.com/plugins/plugin_asdk_app_6ab8ea1ed0b88191a8ff5e04e29bf2f8)
 已连接此专用 Tunnel。元数据变更后刷新工具信息。2026-09-27 的网页聊天
 已真实完成读取、候选提交和状态查询；提案仍须在 Obsidian 本地接受。连接中
