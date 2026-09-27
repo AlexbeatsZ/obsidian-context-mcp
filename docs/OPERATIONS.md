@@ -87,8 +87,10 @@ ChatGPT 中的 [Obsidian Context MCP — STEM Windows](https://chatgpt.com/plugi
 已真实完成读取、候选提交和状态查询；提案仍须在 Obsidian 本地接受。连接中
 没有接受、恢复、命令执行或任意本机文件访问工具。
 
-Mac 需要独立 Tunnel ID、`obsidian-context-stem-mac` alias 和 ChatGPT 应用。
+Mac 使用独立 Tunnel `tunnel_6ab9425b741081919d5a7ba1f10a3641`、
+`obsidian-context-stem-mac` alias 和
+[Obsidian Context MCP — STEM Mac](https://chatgpt.com/plugins/plugin_asdk_app_6ab943060aa48191960e218b3fc67cd6)。
 配置保存在 Mac 项目的 `.local/tunnel.json`；`client` 指向本机已有的
-`tunnel-client`，`credential_source` 指向本机已有凭据源。填入新建的 Mac
-`tunnel_id` 后，仍用 `npm run tunnel:start/status/stop` 管理。运行凭据只传给
+`tunnel-client`，`credential_source` 指向本机已有凭据源，`tunnel_id` 为上面的
+独立 ID。用 `npm run tunnel:start/status/stop` 管理。运行凭据只传给
 Tunnel client，`scripts/start-mcp.mjs` 启动 MCP 前清理凭据及代理。

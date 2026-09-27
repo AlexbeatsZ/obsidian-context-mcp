@@ -6,10 +6,11 @@ local STEM vault; no Manage or mobile deployment.
 
 # Current State
 
-- TypeScript v0.1.0 plugin and independent stdio MCP bridge implemented; deployed only to Windows STEM on Obsidian 1.13.7.
-- 43 meaningful tests, type checking and production build pass on Windows. Independent stdio client and `npm run mcp` discover all six tools.
-- Real UI verifies source/rendered selections, browser blur, clear selection, inline review for Markdown edits and file operations, partial accepts, conflict blocking, create, linked move, attachment rename, trash and local restoration. The former full-page review view was removed.
+- TypeScript v0.1.0 plugin and independent stdio MCP bridge implemented; deployed to the local STEM vaults on Windows and macOS.
+- 43 meaningful tests, type checking and production build pass on both hosts. Independent stdio clients discover all six tools.
+- Windows real UI verifies source/rendered selections, browser blur, clear selection, inline review for Markdown edits and file operations, partial accepts, conflict blocking, create, linked move, attachment rename, trash and local restoration. The former full-page review view was removed. Mac UI review remains unverified.
 - Dedicated Tunnel `tunnel_6ab8e356341081918c02253bec374df6` is connected to the Xia ChatGPT app. A real web chat completed context/read, proposal and status calls; runtime status was `ready` at the last check.
+- Separate Mac Tunnel `tunnel_6ab9425b741081919d5a7ba1f10a3641` and ChatGPT app are connected. Mac local and web context/search/read/propose/status calls passed; Mac UI candidate approval and recovery still require real acceptance. See `docs/ACCEPTANCE.md`.
 - No model API calls and no remote approval endpoint.
 - Design index: `docs/design/workflow.md`, `docs/design/macos.md`, `docs/API.md`; operations: `docs/OPERATIONS.md`; evidence: `docs/ACCEPTANCE.md`.
 
@@ -19,7 +20,7 @@ local STEM vault; no Manage or mobile deployment.
 - Remote test proposal `6eece0ce-1037-4d2e-bc42-c66623497325` is completed/accepted; `MCP验收测试/ChatGPT远程候选.md` exists. Two subsequent inline UI test proposals were rejected without writing their targets.
 - A web proposal once persisted but returned an error because the old review view was deferred. The view is removed and local navigation/rendering no longer gates the MCP proposal response.
 - QA fixtures and proposals are in `STEM/MCP验收测试`; retain evidence in `.local/qa`. Do not change course notes for write tests.
-- macOS adaptation is in progress: host-local project default, canonical Vault identity, portable package and credential-stripping Tunnel entrypoint pass Windows tests. Deploy, real Mac MCP calls and separate Tunnel connection remain to verify.
+- macOS local deployment and ChatGPT candidate/status calls are complete. Pending Mac QA proposal `513470ed-bd0d-4cc4-a7bd-57679de54300` creates `MCP验收测试/Mac端内联审阅验收.md` only after local approval. Remaining Mac acceptance: local inline decisions, conflict and restart recovery. Do not claim these from Windows testing alone.
 
 # Build / Run / Test
 

@@ -52,7 +52,8 @@ The dedicated ChatGPT app is connected at
 [Obsidian Context MCP — STEM Windows](https://chatgpt.com/plugins/plugin_asdk_app_6ab8ea1ed0b88191a8ff5e04e29bf2f8).
 Start the runtime before using it; refresh ChatGPT tool metadata after schema
 changes. The web chat has completed real read, propose and status calls.
-The Mac uses a separate Tunnel ID and ChatGPT app; see
+The Mac uses a separate Tunnel ID and
+[ChatGPT app](https://chatgpt.com/plugins/plugin_asdk_app_6ab943060aa48191960e218b3fc67cd6); see
 [macOS design](docs/design/macos.md) and [operations](docs/OPERATIONS.md).
 
 ## Review and restore

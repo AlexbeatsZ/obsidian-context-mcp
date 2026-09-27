@@ -56,6 +56,19 @@
 
 ## macOS STEM 适配
 
-Mac 上已确认 Apple Silicon、Node/npm 和 STEM Vault；同步中已有插件安装文件，
-但缺少独立的项目运行目录。跨平台路径、打包和 Tunnel 启动代码已准备好。
-Mac 本机 MCP、Obsidian 界面和独立 ChatGPT Tunnel 的实测结果在部署后记录。
+日期：2026-09-28。Mac 为 Apple Silicon；项目位于
+`/Users/meta/Project/Workspaces/obsidian-context-mcp`，只部署
+`/Users/meta/Documents/Obsidian/STEM`。Windows 的 `.local` 未复制到 Mac。
+
+| 层级 | 证据与结果 |
+|---|---|
+| Mac 构建 | 本机 `npm ci`、43 项测试、类型检查、插件和 MCP 生产构建、三文件 ZIP 打包通过 |
+| Mac 部署 | `npm run deploy -- /Users/meta/Documents/Obsidian/STEM` 完成；备份在 Mac 项目 `.local/deployment-backups`，Mac Obsidian 已启动 |
+| 本机 MCP | 独立 stdio 客户端发现六个工具；`obsidian_get_context` 返回真实当前笔记 `02笔记/化学/化学动力学/01传递过程和非平衡态热力学.md`，模式 `source`、选区 0；搜索“平均相对速率”返回 3 条有界结果，按行读取该笔记返回 183 总行数和 revision |
+| Mac Tunnel | 独立 Tunnel `tunnel_6ab9425b741081919d5a7ba1f10a3641` 关联 Personal / Xia；项目 alias `obsidian-context-stem-mac` 的 `tunnel:status` 为 `ready` |
+| ChatGPT 连接 | [Obsidian Context MCP — STEM Mac](https://chatgpt.com/plugins/plugin_asdk_app_6ab943060aa48191960e218b3fc67cd6) 显示“已连接”；[真实调用聊天](https://chatgpt.com/c/6ab943b2-adb0-83e8-8dc3-8ba0baf0a610) 返回同一 Mac 笔记路径、模式及选区数，完成搜索后的读取，并提交一项新建测试候选及查询状态 |
+| Mac 候选 | 网页提交的提案 `513470ed-bd0d-4cc4-a7bd-57679de54300`，目标 `MCP验收测试/Mac端内联审阅验收.md`；网页和本机 stdio 状态均为 `awaiting_user_review`。目标目录尚不存在，提交没有写入 Vault |
+
+Mac 界面的候选接受／拒绝、冲突和重启恢复尚未实机验收；不得把本机测试、
+Tunnel `ready` 或候选提交等同于这些流程通过。本机只读验收请求与结果保存在
+Mac 项目忽略的 `.local/qa` 中；没有修改课程笔记。

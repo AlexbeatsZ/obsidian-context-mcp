@@ -19,8 +19,9 @@ absolute host-native Node path. It removes control-plane credentials and proxy
 variables before starting `dist/mcp.cjs`. The old PowerShell launcher remains
 only for an already-registered Windows runtime until that runtime is refreshed.
 
-The Mac Tunnel must have its own alias, profile directory, remote Tunnel ID and
-ChatGPT app. Associate it with the same intended Personal/Xia scope as the
-Windows app, but do not transfer a runtime key into the Vault or Git. Local
-MCP discovery and real read calls precede remote connection. Actual ChatGPT
-availability requires tool discovery and a real call through the Mac Tunnel.
+The Mac Tunnel has its own alias (`obsidian-context-stem-mac`), profile
+directory, remote ID (`tunnel_6ab9425b741081919d5a7ba1f10a3641`) and
+ChatGPT app. It is associated with the intended Personal/Xia scope. Runtime
+credentials remain on the Mac outside the Vault and Git. Local MCP discovery,
+real read calls and ChatGPT web read/propose/status calls passed on 2026-09-28.
+Candidate decisions and recovery on the Mac UI require separate real acceptance.
