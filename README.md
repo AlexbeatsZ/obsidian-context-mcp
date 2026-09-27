@@ -14,7 +14,9 @@ npm run deploy -- C:/Users/Meta/Documents/Obsidian/STEM
 
 Reload Obsidian, or enable **Obsidian Context MCP** in community plugins. Its
 settings store the local project directory outside synced plugin data.
-Use the compare icon or the **审阅候选修改** command to open review.
+Markdown edits appear in the note itself: original lines are tinted red and
+candidate lines appear below in green, with local Accept/Reject buttons. Use
+the compare icon or **审阅候选修改** for proposal history and file operations.
 
 ## Local MCP
 
@@ -35,9 +37,10 @@ npm run tunnel:status
 npm run tunnel:stop
 ```
 
-Create the dedicated connection in ChatGPT using its Tunnel selector. Refresh
-metadata after schema changes, and test real read and proposal calls. A green
-health endpoint alone is not end-to-end acceptance.
+The dedicated ChatGPT app is connected at
+[Obsidian Context MCP — STEM Windows](https://chatgpt.com/plugins/plugin_asdk_app_6ab8ea1ed0b88191a8ff5e04e29bf2f8).
+Start the runtime before using it; refresh ChatGPT tool metadata after schema
+changes. The web chat has completed real read, propose and status calls.
 
 ## Review and restore
 

@@ -8,7 +8,7 @@ import type { ReviewEngine, PreparedOperation, Proposal } from "./engine";
 export const REVIEW_VIEW="obsidian-context-mcp-review";
 export class ReviewView extends ItemView {
   private editors: {destroy():void}[]=[];private selected:string|null=null;private split=false;private busy=false;
-  constructor(leaf:WorkspaceLeaf,public engine:ReviewEngine,public project:string){super(leaf);}
+  constructor(leaf:WorkspaceLeaf,public engine:ReviewEngine,public project:string,private openInline?:(id:string,p:string)=>Promise<boolean>){super(leaf);}
   getViewType(){return REVIEW_VIEW;}
   getDisplayText(){return "待审阅修改";}
   getIcon(){return "git-compare-arrows";}
@@ -21,7 +21,7 @@ export class ReviewView extends ItemView {
     const root=this.contentEl,scrollTop=root.scrollTop;this.destroyEditors();root.empty();root.addClass("ocm-review");
     const heading=root.createDiv({cls:"ocm-heading"});heading.createEl("h2",{text:"待审阅修改"});heading.createSpan({text:"STEM · 本机已连接",cls:"ocm-connection"});
     const proposals=[...this.engine.proposals.values()].sort((a,b)=>b.created_at.localeCompare(a.created_at));
-    if(!proposals.length){root.createEl("p",{text:"在 AI 客户端提出修改后，在这里查看并接受。",cls:"ocm-empty"});return;}
+    if(!proposals.length){root.createEl("p",{text:"暂无候选修改",cls:"ocm-empty"});return;}
     const picker=root.createEl("select",{attr:{"aria-label":"选择候选修改"}});
     for(const p of proposals)picker.createEl("option",{text:`${p.title} · ${new Date(p.created_at).toLocaleString()}`,value:p.id});
     if(!this.selected||!this.engine.proposals.has(this.selected))this.selected=proposals[0].id;
@@ -31,7 +31,6 @@ export class ReviewView extends ItemView {
     this.button(bar,"全部接受",()=>this.engine.decideAll(p.id,"accepted"));this.button(bar,"全部拒绝",()=>this.engine.decideAll(p.id,"rejected"));
     this.button(bar,this.split?"统一视图":"双栏视图",()=>{this.split=!this.split;});
     this.button(bar,"恢复已应用修改",()=>this.engine.recover(p.id),!p.operations.some(o=>o.recovery_ids.length&&!o.restored));
-    root.createDiv({text:"接受后立即生效；关联链接与移动操作一起处理。",cls:"ocm-guidance"});
     for(const op of p.operations)this.renderOperation(root,p,op);
     root.scrollTop=scrollTop;
   }
@@ -47,6 +46,7 @@ export class ReviewView extends ItemView {
     this.button(actions,"接受",()=>this.engine.decide(p.id,op.id,"accepted"),!pending||!!op.error);
     this.button(actions,"拒绝",()=>this.engine.decide(p.id,op.id,"rejected"),!pending);
     if(op.input.kind==="edit") {
+      if(this.openInline&&op.input.path.endsWith(".md")&&pending)this.button(actions,"正文审阅",()=>this.openInline!(p.id,op.input.path));
       const base=materialize(op.baseline!.text!,op.hunks);const candidate=materialize(op.baseline!.text!,op.hunks,true);this.diff(card,base,candidate);
       for(const h of op.hunks){const row=card.createDiv({cls:"ocm-hunk"});const line=op.baseline!.text!.slice(0,h.start).split("\n").length;row.createSpan({text:`第 ${line} 行 · ${h.decision==="accepted"?"已接受":h.decision==="rejected"?"已拒绝":"待审阅"}`});
         row.createEl("pre",{text:op.baseline!.text!.slice(h.start,h.end).slice(0,240),cls:"ocm-old"});row.createEl("pre",{text:h.replacement.slice(0,240),cls:"ocm-new"});

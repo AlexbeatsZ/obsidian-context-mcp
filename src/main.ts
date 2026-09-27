@@ -8,11 +8,13 @@ import { PluginService } from "./service";
 import { ContextTracker } from "./context";
 import { startPluginServer } from "./http";
 import { REVIEW_VIEW, ReviewView } from "./review";
+import { InlineReview } from "./inline-review";
 
 const DEFAULT_PROJECT="C:/Users/Meta/Project/Workspaces/obsidian-context-mcp";
 export default class ContextPlugin extends Plugin {
   project="";engine!:ReviewEngine;context!:ContextTracker;connected=false;
   private stop:(()=>Promise<void>)|null=null;
+  private inline:InlineReview|null=null;
   async onload(){
     this.project=this.app.loadLocalStorage("obsidian-context-mcp.project")??DEFAULT_PROJECT;
     this.addSettingTab(new ContextSettings(this.app,this));
@@ -25,8 +27,13 @@ export default class ContextPlugin extends Plugin {
       if(path.resolve(root).toLowerCase()!==path.resolve(config.root).toLowerCase())return;
       const port=new ObsidianPort(this.app,root);this.engine=new ReviewEngine(port,path.join(this.project,".local"),config.vault);
       await this.engine.load(false);this.context=new ContextTracker(this.app,port,config.vault);
-      this.registerView(REVIEW_VIEW,leaf=>new ReviewView(leaf,this.engine,this.project));
-      this.engine.onChange=()=>this.app.workspace.getLeavesOfType(REVIEW_VIEW).forEach(l=>(l.view as ReviewView).render());
+      this.inline=new InlineReview(this.app,this.engine,id=>this.openManager(id),()=>this.context.pauseForReview());
+      this.registerEditorExtension(this.inline.extension());
+      this.registerView(REVIEW_VIEW,leaf=>new ReviewView(leaf,this.engine,this.project,(id,p)=>this.inline!.open(id,p)));
+      this.engine.onChange=()=>{this.inline?.refresh();this.app.workspace.getLeavesOfType(REVIEW_VIEW).forEach(l=>{if(l.view instanceof ReviewView)l.view.render();});};
+      const resumeContext=(event:Event)=>{const target=event.target;if(target instanceof Element&&!target.closest(".ocm-inline-block, .ocm-inline-toolbar"))this.context.resumeForUserEdit();};
+      this.registerDomEvent(document,"pointerdown",resumeContext,true);
+      this.registerDomEvent(document,"keydown",resumeContext,true);
       this.registerEditorExtension(EditorView.updateListener.of(update=>{
         if(update.docChanged||update.selectionSet){const info=update.state.field(editorInfoField,false);if(info&&document.hasFocus())this.context.capture(info);if(update.docChanged&&info?.file)void this.engine.invalidate(info.file.path);}
       }));
@@ -49,10 +56,18 @@ export default class ContextPlugin extends Plugin {
       })().catch(e=>{new Notice(`笔记 MCP 未连接：${e.message}`,10000);console.error("Obsidian Context MCP",e);});});
     }catch(e){new Notice(`笔记 MCP 未连接：${(e as Error).message}`,10000);console.error("Obsidian Context MCP",e);}
   }
-  async openReview(id?:string){if(!this.engine){new Notice("请先检查笔记 MCP 的项目配置。");return;}let leaf=this.app.workspace.getLeavesOfType(REVIEW_VIEW)[0];if(!leaf){leaf=this.app.workspace.getLeaf("tab");await leaf.setViewState({type:REVIEW_VIEW,active:true});}if(id)(leaf.view as ReviewView).select(id);await this.app.workspace.revealLeaf(leaf);}
-  onunload(){this.connected=false;if(this.stop)void this.stop();}
+  async openReview(id?:string){if(!this.engine){new Notice("请先检查笔记 MCP 的项目配置。");return;}if(await this.inline?.open(id))return;await this.openManager(id);}
+  async openManager(id?:string){
+    let leaf=this.app.workspace.getLeavesOfType(REVIEW_VIEW)[0];
+    if(!leaf){leaf=this.app.workspace.getLeaf("tab");await leaf.setViewState({type:REVIEW_VIEW,active:true});}
+    await leaf.loadIfDeferred();
+    if(!(leaf.view instanceof ReviewView))throw new Error("审阅视图未能加载");
+    if(id)leaf.view.select(id);
+    await this.app.workspace.revealLeaf(leaf);
+  }
+  onunload(){this.connected=false;this.inline?.close();if(this.stop)void this.stop();}
 }
 class ContextSettings extends PluginSettingTab {
   constructor(app:App,public plugin:ContextPlugin){super(app,plugin);}
-  display(){const el=this.containerEl;el.empty();el.createEl("h2",{text:"Obsidian Context MCP"});new Setting(el).setName("连接状态").setDesc(this.plugin.connected?"STEM 已连接，修改需要在审阅页接受。":"未连接，请检查项目路径并重新加载插件。");new Setting(el).setName("本机项目目录").setDesc("只在本机保存，不随仓库同步。更改后重新加载插件。").addText(t=>t.setValue(this.plugin.project).onChange(value=>{this.app.saveLocalStorage("obsidian-context-mcp.project",value);}));new Setting(el).setName("候选修改").addButton(b=>b.setButtonText("打开审阅").onClick(()=>this.plugin.openReview()));}
+  display(){const el=this.containerEl;el.empty();el.createEl("h2",{text:"Obsidian Context MCP"});new Setting(el).setName("连接状态").setDesc(this.plugin.connected?"STEM 已连接":"未连接");new Setting(el).setName("本机项目目录").addText(t=>t.setValue(this.plugin.project).onChange(value=>{this.app.saveLocalStorage("obsidian-context-mcp.project",value);}));new Setting(el).setName("候选修改").addButton(b=>b.setButtonText("打开审阅").onClick(()=>this.plugin.openReview()));}
 }

@@ -32,3 +32,27 @@ vault. A fresh token and port identify each plugin lifetime. The bridge checks
 the configured root and vault identity. Tunnel credentials/proxy are scoped to
 tunnel-client and stripped from the stdio child. A dedicated tunnel avoids
 changing the existing general-purpose Codex MCP service.
+
+## Review presentation (2026-09-27)
+
+Markdown edits default to the actual note editor. Original changed lines remain
+in the document with a red tint; read-only green candidate blocks sit immediately
+below them. The blocks are CodeMirror decorations, never document content. Local
+Accept/Reject buttons address immutable hunk IDs. Earlier accepted changes are
+the only offset adjustment; any other document change hides stale decorations
+and the existing engine blocks acceptance. Inline navigation preserves the last
+user context until a real pointer/key interaction in a note resumes tracking.
+
+The note toolbar has proposal title, file selector when needed, Accept all,
+Reject all and proposal history. Explanatory guidance is omitted. New files,
+attachments and linked moves still use operation cards, and non-Markdown text
+uses the read-only CodeMirror merge view. These retain group approval and local
+recovery; inline link previews must not enable partial acceptance of a move.
+
+The manager leaf can be deferred after an Obsidian reload. Proposal persistence
+must not depend on rendering a background leaf: redraw loaded manager views
+only, and await `loadIfDeferred()` before selecting a proposal in the manager.
+
+Visual reference: Smart Composer Apply Edit, specifically full-note flow,
+removed text above added text and controls beside each change. Its model/chat
+and write implementations are not adopted.

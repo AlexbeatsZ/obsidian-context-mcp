@@ -7,8 +7,12 @@ import type { ObsidianPort } from "./obsidian-port";
 export class ContextTracker {
   last: {id:string;path:string;mode:string;time:string;selections:ContextData["selections"];cursor:ContextData["cursor"]}|null=null;
   recent:string[]=[];
+  private reviewPaused=false;
   constructor(public app:App,public port:ObsidianPort,public vaultId:string){}
+  pauseForReview(){this.reviewPaused=true;}
+  resumeForUserEdit(){this.reviewPaused=false;}
   capture(info:MarkdownFileInfo) {
+    if(this.reviewPaused)return;
     if(!info.file||!info.editor)return;
     const active=this.app.workspace.getActiveViewOfType(MarkdownView);
     if(active?.file?.path!==info.file.path)return;
@@ -22,11 +26,13 @@ export class ContextTracker {
     this.set(info.file.path,"source",selections,point(editor.getCursor()));
   }
   captureLeaf() {
+    if(this.reviewPaused)return;
     const view=this.app.workspace.getActiveViewOfType(MarkdownView);if(!view?.file)return;
     if(view.getMode()==="source")this.capture(view);
     else if(this.last?.path!==view.file.path||this.last.mode!=="preview")this.set(view.file.path,"preview",[],null);
   }
   captureReadingSelection(doc:Document) {
+    if(this.reviewPaused)return;
     if(!doc.hasFocus())return;
     const view=this.app.workspace.getActiveViewOfType(MarkdownView);if(!view?.file||view.getMode()!=="preview")return;
     const selection=doc.getSelection();

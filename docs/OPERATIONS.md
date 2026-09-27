@@ -24,7 +24,9 @@ node scripts/call.mjs obsidian_read_file arguments.json
 
 ## 审阅
 
-提交候选后会打开“待审阅修改”。统一和双栏 diff 都只读。
+Markdown 编辑候选直接显示在原笔记正文：原行标红、候选行显示在其下方，逐块
+“接受 / 拒绝”按钮也在正文中。候选内容不会写入编辑器文档。新建、移动、
+重命名、回收和非 Markdown 文本仍在“待审阅修改”中审阅，统一和双栏 diff 只读。
 
 - “接受此处”立即写入这一块；“拒绝此处”保留原文。
 - 新建、移动、重命名、回收整份确认。移动与涉及的链接修改一起接受。
@@ -72,6 +74,7 @@ npm run tunnel:status
 npm run tunnel:stop
 ```
 
-在 ChatGPT 连接此专用 Tunnel，元数据变更后刷新工具信息。应完成真实读取和
-候选提交，不能以 Tunnel 健康或工具发现代替验收。连接只允许提出修改，
-ChatGPT 中没有接受、恢复、命令执行或任意本机文件访问工具。
+ChatGPT 中的 [Obsidian Context MCP — STEM Windows](https://chatgpt.com/plugins/plugin_asdk_app_6ab8ea1ed0b88191a8ff5e04e29bf2f8)
+已连接此专用 Tunnel。元数据变更后刷新工具信息。2026-09-27 的网页聊天
+已真实完成读取、候选提交和状态查询；提案仍须在 Obsidian 本地接受。连接中
+没有接受、恢复、命令执行或任意本机文件访问工具。

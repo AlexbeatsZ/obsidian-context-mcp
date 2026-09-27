@@ -7,7 +7,7 @@
 
 | 层级 | 证据与结果 |
 |---|---|
-| 自动化 | 34 项测试、TypeScript 类型检查、生产插件与 MCP 构建通过；上下文通过公开 API 替身覆盖多选区和无活动笔记 |
+| 自动化 | 38 项测试、TypeScript 类型检查、生产插件与 MCP 构建通过；上下文通过公开 API 替身覆盖多选区和无活动笔记 |
 | 独立 MCP | 真正的 stdio 客户端发现六个工具；`npm run mcp` 也通过握手与发现 |
 | 源码上下文 | 真实中文/emoji 选区返回第 8 行、UTF-16 列 0–20，与界面一致 |
 | 审阅上下文 | 打开 diff 后仍返回原笔记与原选区 |
@@ -16,6 +16,8 @@
 | 阅读模式 | 渲染选区文字正确，类型为 `rendered`，没有源码坐标，cursor 为 null |
 | 搜索与读取 | “平均相对速率”在真实 STEM 找到 4 个结果；搜索完整，正文可读取；图片只返回元数据 |
 | CodeMirror | 统一和双栏 diff 在 Obsidian 提供的 CodeMirror 模块中均实际显示 |
+| 正文内审阅 | Markdown 原行标红、候选行紧随其下标绿；候选内容不进入文件。真实 UI 中逐块接受 1、2、4，拒绝 3，磁盘正文与状态一致；重新加载后待审阅块恢复 |
+| 正文内上下文 | 打开正文候选不覆盖用户笔记快照；真实源码选区和跳转后的上下文保存在 `.local/qa/inline-context.json` |
 | 四块审阅 | 1、2、4 接受，3 拒绝；磁盘正文对应；状态 `completed` / `partially_accepted` |
 | 重启 | 第 1、2 块已应用时重新加载；未完成块和部分接受状态正确恢复 |
 | 过期候选 | 在 Obsidian 手动追加原文，提案变为冲突，未写入候选 |
@@ -24,6 +26,9 @@
 | 最终解析器复测 | 更新后的 Markdown 解析器在真实 Obsidian 中生成逆向移动的两组链接 diff；全部拒绝后状态为 `completed` / `rejected`，操作日志没有应用步骤，文件路径与正文保持原样 |
 | 附件重命名 | 图片移动后嵌入更新；字节大小与附件 revision 保持 |
 | 回收与恢复 | 专用文本进入 `.trash`，原路径消失；本地恢复按钮还原原路径和原内容；重新加载后状态为 `restored`，恢复步骤记录保留 |
+| 专用 Tunnel | `obsidian-context-stem-win` 运行状态为 `ready`，Tunnel ID 为 `tunnel_6ab8e356341081918c02253bec374df6` |
+| ChatGPT 连接 | Xia 工作区的专用应用已连接；[真实测试聊天](https://chatgpt.com/c/6ab8eac8-5204-83e8-8e90-96ff00709596) 调用上下文与读取工具，返回真实 STEM 文件和测试笔记前几行 |
+| ChatGPT 候选与状态 | 同一聊天调用 `obsidian_propose_changes` 和 `obsidian_get_change_status`，得到提案 `6eece0ce-1037-4d2e-bc42-c66623497325`、`awaiting_user_review`；Obsidian 显示新建卡片，目标文件仍不存在 |
 
 详细请求、结果、原文副本和状态记录保存在忽略的 `.local/qa`，避免把仓库正文
 或配对信息加入 Git。安装 ZIP 位于 `dist/obsidian-context-mcp-0.1.0.zip`。
@@ -38,10 +43,11 @@
 - 每次接受后的重绘曾把滚动位置送回顶部，已保留位置；真实逐块操作复测通过。
 - 使用 Markdown 语法树排除引用中的代码块、缩进代码与跨行行内代码，并支持
   Markdown 引用式链接定义，避免移动时误改示例代码。
+- 真实 ChatGPT 首次提交新建候选时，持久化已经成功，但审阅视图仍处于 Obsidian
+  的延迟加载状态，导致 `render` / `select` 调用抛错并向远端报失败。现在仅渲染
+  已加载视图；打开审阅时先 `loadIfDeferred()`。同一 `request_id` 重试返回原提案，
+  远端状态正确，未重复创建。
 
-## 仍须完成
-
-- 专用 Tunnel 创建及 ChatGPT 连接等待新增服务入口授权。
-- 从目标 ChatGPT 账号真实调用读取和提交候选。
-
-在最后两项完成前，不能报告首版端到端验收通过。
+首版 Windows STEM 的本地流程与 ChatGPT 端到端验收已完成。专用 Tunnel 是按需
+启动的项目 runtime，使用前运行 `npm run tunnel:start`；当前状态已复查为 `ready`。
+远端创建的测试提案特意留在 Obsidian 待审阅，不会自动写入目标文件。
