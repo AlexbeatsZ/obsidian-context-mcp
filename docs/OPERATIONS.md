@@ -22,6 +22,46 @@ node scripts/call.mjs obsidian_read_file arguments.json
 读取结果的 revision 和精确原文。正文行从 1 开始，UTF-16 列从 0 开始。
 阅读模式选区只提供渲染文字，不提供虚构源码坐标。
 
+## Windows 桌面客户端
+
+本机 Antigravity Desktop 和 Claude Desktop 使用本地 stdio 服务，复用同一
+Windows STEM 插件及配对，不需要启动 ChatGPT Tunnel。2026-10-06 在 META-OMEN
+安装的服务名为 `obsidian-context-stem-windows`，配置如下：
+
+```json
+{
+  "command": "C:/Users/Meta/scoop/apps/nodejs-lts/current/node.exe",
+  "args": ["C:/Users/Meta/Project/Workspaces/obsidian-context-mcp/dist/mcp.cjs"],
+  "env": {
+    "OBSIDIAN_MCP_PROJECT": "C:/Users/Meta/Project/Workspaces/obsidian-context-mcp"
+  }
+}
+```
+
+将此对象作为已有 `mcpServers` 的一个条目合并，保留其余服务器和设置。
+`OBSIDIAN_MCP_PROJECT` 必须显式设置，桌面客户端的启动目录通常不是项目目录。
+Node 使用本机已有绝对路径；不需要安装全局依赖或复制配对 token。
+
+- Antigravity Desktop 2.19.1：`C:/Users/Meta/.gemini/config/mcp_config.json`。
+  本机 `.gemini/antigravity/mcp_config.json` 是指向此文件的符号链接。
+  `.gemini/antigravity-ide` 属于另一安装，不作为本次桌面版配置目标。
+- Claude Windows Store 2.19675.1.0：
+  `C:/Users/Meta/AppData/Local/Packages/Claude_pzs8sxrjxfjjc/LocalCache/Roaming/Claude/claude_desktop_config.json`。
+  `~/.claude.json` 属于 Claude Code，不是 Desktop 配置。
+
+保存后启动或完整重启桌面客户端，并保持 Obsidian 的 STEM 打开。
+Claude 的 `C:/Users/Meta/AppData/Local/Claude/logs/main.log` 应出现
+`Connected to obsidian-context-stem-windows (6 tools)`。
+Antigravity 本机工具定义在 `.gemini/antigravity/mcp/obsidian-context-stem-windows/`；
+应发现六个工具及服务器说明，并核对实际 MCP 进程属于桌面版 language server。
+独立 MCP 握手与 `obsidian_get_context` 可以验证配置命令和 Obsidian 连接；
+这与桌面客户端自身加载工具是两个检查层级。
+
+安装前配置保存在忽略的 `.local/desktop-client-backups/20261006/`，只读验证
+记录在 `.local/qa/desktop-clients-20261006.json`。回滚优先仅删除两边
+`mcpServers.obsidian-context-stem-windows`，再重启客户端，保留后来修改的其他设置。
+所有候选仍需在 Obsidian 本地接受；没有新增直接写入或远程接受能力。
+
 ## 审阅
 
 Markdown 编辑候选直接显示在原笔记正文：原行标红、候选行显示在其下方，逐块

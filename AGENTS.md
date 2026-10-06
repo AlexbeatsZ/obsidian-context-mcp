@@ -13,6 +13,8 @@ local STEM vault; no Manage or mobile deployment.
 - On 2026-09-28 the Windows runtime was found `stopped` after ChatGPT reported `McpServerError: Session terminated`; local stdio still returned the selected text. `npm run tunnel:start` restored `ready`, and the same ChatGPT chat successfully called `obsidian_get_context`. The underlying exit trigger is not established; see `docs/ACCEPTANCE.md` and `docs/OPERATIONS.md`.
 - Separate Mac Tunnel `tunnel_6ab9425b741081919d5a7ba1f10a3641` and ChatGPT app are connected. Mac local and web context/search/read/propose/status calls passed; Mac UI candidate approval and recovery still require real acceptance. See `docs/ACCEPTANCE.md`.
 - No model API calls and no remote approval endpoint.
+- META-OMEN Antigravity Desktop 2.19.1 and Claude Windows Store Desktop 2.19675.1.0 are configured with local stdio server `obsidian-context-stem-windows` (2026-10-06). Both exact configurations passed six-tool discovery and live STEM context retrieval. Antigravity generated six tool definitions and runs the MCP as a language-server child; Claude runtime logs confirm connection and announcement of all six tools. Existing MCP entries/settings were preserved. Config paths and narrow rollback are in `docs/OPERATIONS.md`.
+- Git remote is `https://github.com/AlexbeatsZ/obsidian-context-mcp.git` (`origin`, branch `main`). Machine-specific configuration backups and QA evidence stay ignored under `.local/`.
 - Design index: `docs/design/workflow.md`, `docs/design/macos.md`, `docs/API.md`; operations: `docs/OPERATIONS.md`; evidence: `docs/ACCEPTANCE.md`.
 
 # Active Work

@@ -79,3 +79,19 @@
 Mac 界面的候选接受／拒绝、冲突和重启恢复尚未实机验收；不得把本机测试、
 Tunnel `ready` 或候选提交等同于这些流程通过。本机只读验收请求与结果保存在
 Mac 项目忽略的 `.local/qa` 中；没有修改课程笔记。
+
+## Windows 桌面客户端注册
+
+日期：2026-10-06；主机 META-OMEN。使用既有 Node 和生产 MCP，未改动插件、
+配对、Vault 或 ChatGPT Tunnel。服务名为 `obsidian-context-stem-windows`。
+
+| 层级 | 证据与结果 |
+|---|---|
+| 配置合并 | Antigravity 全局 `mcp_config.json` 保留 `agent-history` / `computer-use`；Claude Store 的实际 Desktop 配置保留 `agent-history`、preferences 和文件目录设置。解析后比对确认只新增目标 MCP 条目 |
+| 启动命令 | 分别使用两份配置中的绝对 Node 路径、参数和环境，从非项目工作目录完成 MCP 握手；均发现完整六工具，并成功调用 `obsidian_get_context` 返回 `vault: stem` |
+| Antigravity Desktop 2.19.1 | 启动后 `.gemini/antigravity/mcp/obsidian-context-stem-windows/` 生成六份工具定义和服务器 instructions；实际 MCP Node 进程由桌面版 `language_server.exe` 启动 |
+| Claude Store Desktop 2.19675.1.0 | 完整重启后 22:55:17 的 `Local/Claude/logs/main.log` 确认协议协商 `2025-11-25`、`Connected to obsidian-context-stem-windows (6 tools)` 及工具发布；既有 `agent-history` 仍连接成功 |
+
+验收限于配置、桌面程序发现工具及只读上下文调用；未发送模型聊天或创建新候选。
+笔记写入仍沿用既有的 Obsidian 本地审阅流程。配置前副本和有界验证记录在忽略的
+`.local/desktop-client-backups/20261006/` 与 `.local/qa/desktop-clients-20261006.json`。
