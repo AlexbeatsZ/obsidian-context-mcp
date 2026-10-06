@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { assertRealPath, isText, revision, safePath, type Snapshot, type VaultPort } from "./core";
 import { fail } from "./protocol";
+import { editorChanges } from "./editor-changes";
 
 export class ObsidianPort implements VaultPort {
   constructor(public app:App,public root:string){}
@@ -34,8 +35,11 @@ export class ObsidianPort implements VaultPort {
       if(current!==disk||editors.some(v=>revision(v.editor.getValue())!==expected))fail("CONFLICT",`${p} 在写入前改变。`);
       if(!editors.length&&revision(current)!==expected)fail("CONFLICT",`${p} 在写入前改变。`);
       for(const view of editors) {
-        const old=view.editor.getValue();const end=view.editor.offsetToPos(old.length);
-        view.editor.transaction({changes:[{from:{line:0,ch:0},to:end,text}]});
+        const changes=editorChanges(view.editor.getValue(),text).map(change=>{
+          const {from,to,insert}=change;
+          return {from:view.editor.offsetToPos(from),to:view.editor.offsetToPos(to),text:insert};
+        });
+        if(changes.length)view.editor.transaction({changes});
       }
       return text;
     });

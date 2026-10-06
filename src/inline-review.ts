@@ -1,5 +1,5 @@
 import { App, MarkdownView, Notice, editorInfoField } from "obsidian";
-import { StateEffect, StateField, type EditorState, type Extension, type Range } from "@codemirror/state";
+import { EditorState, StateEffect, StateField, type ChangeSet, type Extension, type Range } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view";
 import type { ReviewEngine, Proposal, PreparedOperation } from "./engine";
 import { changedLinePairs, firstPendingOffset, inlineHunks, pickReviewHost, type InlineHunk } from "./inline-model";
@@ -12,6 +12,7 @@ export class InlineReview {
   hostPath:string|null=null;
   busy=false;
   private views=new Set<EditorView>();
+  private decisionScroll=new Map<EditorView,StateEffect<unknown>>();
   private scheduled=false;
   constructor(private app:App,private engine:ReviewEngine,private pauseContext:()=>void,private preferredContext:()=>string|null){}
 
@@ -39,7 +40,9 @@ export class InlineReview {
     const toolbar=ViewPlugin.fromClass(class {
       bar:HTMLElement|null=null;
       constructor(public view:EditorView){owner.views.add(view);this.render();}
-      update(update:{docChanged:boolean;transactions:readonly {effects:readonly StateEffect<unknown>[]}[]}){
+      update(update:{docChanged:boolean;changes:ChangeSet;transactions:readonly {effects:readonly StateEffect<unknown>[]}[]}){
+        const snapshot=owner.decisionScroll.get(this.view);
+        if(snapshot&&update.docChanged)owner.decisionScroll.set(this.view,snapshot.map(update.changes)!);
         if(update.docChanged||update.transactions.some(tr=>tr.effects.some(e=>e.is(refreshInline))))this.render();
       }
       render(){
@@ -68,9 +71,15 @@ export class InlineReview {
         if(p.recovery_error){const error=bar.ownerDocument.createElement("span");error.className="ocm-error";error.textContent=p.recovery_error;bar.append(error);}
         host.insertBefore(bar,host.firstChild);
       }
-      destroy(){owner.views.delete(this.view);this.bar?.remove();}
+      destroy(){owner.views.delete(this.view);owner.decisionScroll.delete(this.view);this.bar?.remove();}
     });
-    return [field,toolbar];
+    const keepDecisionScroll=EditorState.transactionExtender.of(tr=>{
+      if(!tr.docChanged)return null;
+      const view=[...owner.views].find(view=>view.state===tr.startState);
+      const snapshot=view&&owner.decisionScroll.get(view);
+      return snapshot?{effects:snapshot.map(tr.changes)!}:null;
+    });
+    return [field,toolbar,keepDecisionScroll];
   }
 
   private decorations(state:EditorState){
@@ -99,7 +108,9 @@ export class InlineReview {
     return this.engine.decide(proposal,operation,decision,hunk);
   }
   private async run(action:()=>Promise<unknown>){
-    if(this.busy)return;this.busy=true;this.refresh();
+    if(this.busy)return;
+    for(const view of this.views)this.decisionScroll.set(view,view.scrollSnapshot());
+    this.busy=true;this.refresh();
     try{await action();}catch(error){new Notice((error as Error).message,8000);}finally{
       const p=this.selected?this.engine.proposals.get(this.selected):null;
       if(p&&!p.operations.some(op=>this.engine.pending(op))){this.selected=null;this.hostPath=null;}
@@ -108,7 +119,14 @@ export class InlineReview {
   }
   refresh(){
     if(this.scheduled)return;this.scheduled=true;
-    queueMicrotask(()=>{this.scheduled=false;for(const view of this.views)view.dispatch({effects:refreshInline.of(null)});});
+    queueMicrotask(()=>{
+      this.scheduled=false;
+      for(const view of this.views){
+        const snapshot=this.decisionScroll.get(view);
+        view.dispatch({effects:snapshot?[refreshInline.of(null),snapshot]:refreshInline.of(null)});
+      }
+      if(!this.busy)this.decisionScroll.clear();
+    });
   }
 
   private text(parent:HTMLElement,content:string,cls:string){
@@ -192,7 +210,7 @@ export class InlineReview {
     });
     return true;
   }
-  close(){for(const view of this.views)view.dom.closest(".markdown-source-view")?.parentElement?.querySelector(".ocm-inline-toolbar")?.remove();this.views.clear();}
+  close(){for(const view of this.views)view.dom.closest(".markdown-source-view")?.parentElement?.querySelector(".ocm-inline-toolbar")?.remove();this.views.clear();this.decisionScroll.clear();}
 }
 
 class FileOperationsWidget extends WidgetType {

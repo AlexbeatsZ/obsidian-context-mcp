@@ -105,6 +105,13 @@ npm run rollback
 首次安装的回滚会关闭本插件；已有插件的回滚恢复备份版本。
 执行部署或回滚后在 Obsidian 重新加载，让内存中的插件与文件一致。
 
+ROG 于 2026-10-07 安装 Obsidian 1.14.4，程序在
+`C:/Users/Meta/AppData/Local/Programs/Obsidian/Obsidian.exe`，打开本机已有 STEM。
+ROG 的 `.local/config.json`、端点、提案和恢复记录由本机生成，不复用 OMEN。
+本机候选接受滚动修复已部署并通过真实按钮验收；本轮没有配置 ChatGPT Tunnel。
+接受现在只更新变化的文字，并在决定和候选块收起期间保留当前编辑器的滚动
+锚点。单次审阅结束会收起工具栏；显式打开审阅或切换文件仍会导航至候选。
+
 macOS 在 `/Users/meta/Project/Workspaces/obsidian-context-mcp` 执行相同的
 `npm ci`、`npm run check`、`npm run package`，以
 `npm run deploy -- /Users/meta/Documents/Obsidian/STEM` 部署。Mac 的 `.local`

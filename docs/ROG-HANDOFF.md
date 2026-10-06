@@ -3,6 +3,39 @@
 Migration verified on 2026-10-06. The user requested that this project's code be
 moved to ROG so subsequent computer control and debugging can happen there.
 
+## Completed on ROG (2026-10-07)
+
+The user confirmed they currently use OMEN, then explicitly requested testing on
+ROG and installation of Obsidian there. Obsidian 1.14.4 was installed from its
+official Windows release. The installer has a valid Dynalist Inc signature and
+SHA256 `28662520368d5956df7798076b8370ac730164a8863dcd4f678ced53f63faa00`.
+The user completed the first-open vault trust step. ROG generated its own local
+configuration, pairing endpoint, proposals and recovery records; no Tunnel was
+created or copied.
+
+The original plugin reproduced the reported problem in a real ROG editor:
+Accept kept the same leaf and note but changed the cursor from zero-based
+`{line:38,ch:13}` to `{line:0,ch:0}` and scrollTop from 882 to 76.
+The whole-document transaction was the confirmed trigger.
+
+The fix sends local character changes to every open editor, skips no-op editor
+transactions, and maps a CodeMirror scroll snapshot through document writes and
+review refreshes. The decision snapshot remains active until the final refresh,
+including when the last candidate closes. Explicit review/file navigation
+retains its existing behavior. Conflicts and recovery checks are unchanged.
+
+The fixed plugin is deployed and running in ROG STEM. Real buttons passed three
+sequential accepts (scrollTop 882, 2132 and 3246 respectively), an out-of-viewport
+cursor, a reversed selection at final completion, Accept all and Reject all.
+The selected text maps correctly when an earlier accepted change adds a line.
+The final toolbar naturally closes when review ends; no scroll-to-cursor or
+note/tab navigation occurs. All three test proposals are completed, and their
+disk text matches the accepted/rejected hunks exactly. All 49 automated tests,
+type checks, production builds and packaging pass. Evidence stays ignored under
+`.local/qa/scroll-acceptance-20261007.json`, the `legacy-*` / `fixed-*` measurements,
+and the browser regression fixture. No course notes were written. This does not
+establish OMEN or Mac UI acceptance of the fix.
+
 ## Project and migration
 
 - Source host: `META-OMEN`.
@@ -47,7 +80,7 @@ with Escape before a reproduction or DevTools verification. They then requested
 the code migration to ROG. No source fix, new regression test or live acceptance
 verification has occurred.
 
-## Next work on ROG
+## Original investigation checklist (now completed)
 
 1. Read `AGENTS.md` and `docs/design/workflow.md`. Reuse the existing STEM vault;
    restrict temporary write fixtures to `STEM/MCP验收测试`.
