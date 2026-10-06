@@ -3,6 +3,19 @@
 日期：2026-09-27。Obsidian 1.13.7，Node 24.14.1，插件 0.1.0。
 修改测试限定在 `STEM/MCP验收测试`；课程笔记只进行搜索与读取。
 
+## ROG 代码迁移与检查（2026-10-06）
+
+按用户要求将完整 Git 历史从 META-OMEN 复制到 META-ROGALLY，目标为
+`C:\Users\Meta\Project\Workspaces\obsidian-context-mcp`。通过 SSH 实机确认
+ROG 主机名和目标目录此前不存在；保留 `main` 分支及 GitHub `origin`。
+ROG 现有 Node 24.14.1 / npm 11.11.0 完成项目内依赖安装，43 项测试、
+TypeScript 检查、插件和 MCP 生产构建均通过，工作树干净。
+
+此次只迁移代码并准备开发环境；未复制 OMEN 的 `.local`、配对、提案、
+恢复记录或 Tunnel 凭据，也未部署、重载 ROG 插件。用户报告的接受候选后
+跳转问题仍待 ROG 真实界面复现，尚无修复。具体线索和继续步骤见
+`docs/ROG-HANDOFF.md`。
+
 ## 已验证
 
 | 层级 | 证据与结果 |
