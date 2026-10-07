@@ -147,3 +147,22 @@ Mac 项目忽略的 `.local/qa` 中；没有修改课程笔记。
 验收限于配置、桌面程序发现工具及只读上下文调用；未发送模型聊天或创建新候选。
 笔记写入仍沿用既有的 Obsidian 本地审阅流程。配置前副本和有界验证记录在忽略的
 `.local/desktop-client-backups/20261006/` 与 `.local/qa/desktop-clients-20261006.json`。
+
+## Windows Tunnel 重启后恢复与远端验证
+
+日期：2026-10-07，23:44–23:45（UTC+8）；主机 META-OMEN。
+用户报告先 404、随后 429；本轮直接复现的是
+`McpServerError: MCP SSE probe returned 429 from openai.org`，来源为 OpenAI
+内部 MCP Tunnel 网关，尚未进入 Obsidian 工具。
+
+| 层级 | 证据与结果 |
+|---|---|
+| 本机插件与 stdio | 独立 `node scripts/call.mjs obsidian_get_context` 成功，返回 `vault: stem`、`01项目/传递过程与非平衡态热力学.md`、`source` 模式；当前选区为空 |
+| 故障时 Tunnel | `stopped`；记录中的 PID 17692 不存在，原健康端口 53437 拒绝连接 |
+| 生命周期 | 旧 runtime 启动时间为 00:15:19；系统当前启动时间为 15:52:38。旧日志最后一条为 01:01:41 的轮询 EOF，之前同类错误曾自动恢复；没有明确退出记录，不能据此认定 EOF 是退出原因 |
+| 恢复 | `npm run tunnel:start` 返回 process mode 连接成功，`npm run tunnel:status` 返回 `ready`，沿用原 Tunnel ID |
+| 真实远端调用 | 同一个 STEM Windows `obsidian_get_context` 连接工具在恢复后成功，返回相同笔记路径、`source` 模式、选区数 0，以及 context ID `e559f7fd-cd72-4171-adb0-9132e26b619f` |
+
+确认的当前缺口是系统重启后没有自动恢复这个按需启动的 runtime；最初退出的
+具体时间与触发原因仍未知。429 在这次事件中是连接探测的错误，不能用作模型
+额度耗尽的证据。没有重载插件、改变客户端配置、提交候选或写入笔记。
