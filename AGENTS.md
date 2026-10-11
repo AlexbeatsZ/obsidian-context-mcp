@@ -6,6 +6,7 @@ local STEM vault; no Manage or mobile deployment.
 
 # Current State
 
+- On 2026-10-11, META-OMEN again reproduced `MCP SSE probe returned 429 from openai.org` while local stdio remained healthy. The dedicated Tunnel was `stopped`: its recorded PID 9228 was absent and health/ready port 58712 refused connections. The record dated from 2026-10-07 23:44:47 (UTC+8), its last log was 2026-10-08 17:35:10, and the current OS boot was 2026-10-11 00:11:11. No dedicated automatic startup/recovery was configured. `npm run tunnel:start` restored `ready`, and the same real Windows remote context tool succeeded. The exact earlier exit trigger remains unknown; login startup and process recovery remain pending. See `docs/ACCEPTANCE.md`.
 - TypeScript v0.1.0 plugin and independent stdio MCP bridge implemented; deployed to the local STEM vaults on Windows and macOS.
 - 43 meaningful tests, type checking and production build pass on both hosts. Independent stdio clients discover all six tools.
 - Windows real UI verifies source/rendered selections, browser blur, clear selection, inline review for Markdown edits and file operations, partial accepts, conflict blocking, create, linked move, attachment rename, trash and local restoration. The former full-page review view was removed. Mac UI review remains unverified.

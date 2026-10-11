@@ -166,3 +166,22 @@ Mac 项目忽略的 `.local/qa` 中；没有修改课程笔记。
 确认的当前缺口是系统重启后没有自动恢复这个按需启动的 runtime；最初退出的
 具体时间与触发原因仍未知。429 在这次事件中是连接探测的错误，不能用作模型
 额度耗尽的证据。没有重载插件、改变客户端配置、提交候选或写入笔记。
+
+## Windows Tunnel 429 再次复现与恢复
+
+日期：2026-10-11（UTC+8）；主机 META-OMEN。
+
+| 层级 | 证据与结果 |
+|---|---|
+| 原始远端错误 | 真实 Windows `obsidian_get_context` 返回 `McpServerError: MCP SSE probe returned 429 from openai.org`，错误类型 `invalid_mcp_response`，来自内部 MCP Tunnel 网关 |
+| 本机插件与 stdio | `node scripts/call.mjs obsidian_get_context` 成功，返回 STEM 当前笔记 `01项目/传递过程与非平衡态热力学重写/传递过程与非平衡态热力学.md`，`source` 模式 |
+| 故障时 Tunnel | `stopped`；记录中的 PID 9228 不存在，健康和就绪端口 58712 拒绝连接 |
+| 生命周期 | runtime 记录仍为 2026-10-07 23:44:47；最后日志为 2026-10-08 17:35:10 的 `poller recovered; polling operational`。系统此后有多次启动记录，当前启动时间为 2026-10-11 00:11:11。没有日志证明旧进程最初的退出触发原因 |
+| 恢复缺口 | 项目启动脚本只调用 `runtimes connect`；未发现此专用 Tunnel 的自动启动任务。另一个 `codex-chat-local-tools-win` Tunnel 正在运行，不能代表 Obsidian 专用 Tunnel 正常 |
+| 恢复及真实远端验证 | `npm run tunnel:start` 成功，随后状态 `ready`；刚才失败的同一个 Windows MCP 上下文工具成功返回上述笔记及 1512 字符的附近正文，context ID 为 `b4c9d994-f420-4a22-9d54-faf465071902` |
+
+这次再次确认停止的专用 Tunnel 与远端 429 的关联：恢复本机 Tunnel 后，原始
+远端调用随之恢复。反复不可用的已知缺口是缺少登录自动启动和进程退出后的
+恢复机制；本次仅恢复现有 runtime，未配置持久自动启动。旧日志中的轮询 EOF
+多次自行恢复，最后记录也为恢复成功，不能认定 EOF 直接导致进程退出。
+没有重载 Obsidian、修改插件设置、提交候选或写入笔记。
