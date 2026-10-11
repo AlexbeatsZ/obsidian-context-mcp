@@ -134,12 +134,42 @@ npm run tunnel:stop
 `npm run tunnel:start`，再请 ChatGPT 重试原调用。本机可用
 `node scripts/call.mjs obsidian_get_context` 区分 Tunnel 中断与 Obsidian
 插件离线。`ready` 仅表示 runtime 已连接，仍要用一次真实 ChatGPT 工具调用
-确认恢复。Tunnel 是按需启动的项目 runtime，不保证重启或退出后自动恢复。
+确认恢复。未安装自动恢复的主机仍需按需启动；Windows META-OMEN 已于
+2026-10-11 安装下面的自动恢复任务。
 
 2026-10-07 的 Windows 故障中，真实连接探测返回 OpenAI 网关的 429，但本机
 stdio 仍能读取笔记；停止的 Tunnel 重新启动后，同一远端工具立即成功。
 因此不能仅凭此错误码判定模型额度耗尽。先区分本机 stdio、Tunnel 进程与
 远端工具调用；若 Tunnel 已经 `ready`，保留具体错误并避免连续重试。
+
+### Windows 登录自启与退出后恢复
+
+在有本机 `.local/tunnel.json` 的 Windows 项目中执行：
+
+```powershell
+npm run tunnel:autostart:install
+npm run tunnel:autostart:status
+# 手动运行一次检查，不注册或修改任务。
+npm run tunnel:ensure
+# 移除自动启动任务，保留连接、凭据及配对。
+npm run tunnel:autostart:uninstall
+```
+
+安装使用当前用户计划任务 `Obsidian Context MCP Tunnel`，登录时检查一次，
+此后每分钟持续检查。使用本机绝对 Node / 项目路径，隐藏运行，允许电池
+供电，不提权也不保存登录密码。已有进程正常运行时保持它；只有该专用
+Tunnel 的进程停止才重连，网络短暂未就绪仍交给原 poller 自行恢复。
+
+`npm run tunnel:stop` 会先写 `.local/tunnel-auto-paused` 再停止连接，暂停自动
+恢复，且暂停跨重启保留。`npm run tunnel:start` 清除暂停并恢复连接。
+只移除任务不会断开当前连接；需要完全停用时先执行 stop，再卸载任务。
+项目或 Node 路径变化后重新安装任务。运行仍需要登录用户以及可用的网络、
+凭据和打开的本机 STEM。任务状态和 Tunnel ready 仍不能代替真实远端工具验收。
+
+自动检查只在恢复或失败时写项目忽略目录的 `.local/tunnel-supervisor.log`，
+超过 512 KiB 保留一份轮转，不记录 CLI 原始输出或凭据。生命周期约定见
+[设计说明](design/tunnel-runtime.md)。META-OMEN 受控结束进程后约 61 秒自动
+恢复，手动暂停／恢复及真实远端读取已通过；本轮未注销或重启整机。
 
 ChatGPT 中的 [Obsidian Context MCP — STEM Windows](https://chatgpt.com/plugins/plugin_asdk_app_6ab8ea1ed0b88191a8ff5e04e29bf2f8)
 已连接此专用 Tunnel。元数据变更后刷新工具信息。2026-09-27 的网页聊天

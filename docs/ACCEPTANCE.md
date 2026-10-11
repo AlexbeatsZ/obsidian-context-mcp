@@ -185,3 +185,24 @@ Mac 项目忽略的 `.local/qa` 中；没有修改课程笔记。
 恢复机制；本次仅恢复现有 runtime，未配置持久自动启动。旧日志中的轮询 EOF
 多次自行恢复，最后记录也为恢复成功，不能认定 EOF 直接导致进程退出。
 没有重载 Obsidian、修改插件设置、提交候选或写入笔记。
+
+## Windows Tunnel 自动启动与恢复验收
+
+日期：2026-10-11，16:56–16:59（UTC+8）；主机 META-OMEN。
+用户在确认反复不可用原因后要求补上登录自启和进程退出恢复。
+
+| 检查 | 证据与结果 |
+|---|---|
+| 安装及身份 | 当前用户任务 `Obsidian Context MCP Tunnel`，InteractiveToken、默认 Limited 权限，动作是本机绝对 PowerShell / Node / 项目路径，沿用原 alias 和 Tunnel ID；未改变 Mac 或其他 Tunnel |
+| 实际触发器 | 导出的任务 XML 包含本用户 LogonTrigger 和 TimeTrigger；重复间隔 `PT1M`，没有 Duration / EndBoundary；允许电池供电、错过后补跑、IgnoreNew，执行时限两分钟 |
+| 正常连接 | 安装后真实任务返回 0，健康运行的 PID 37392 保持，未为正常检查重启 Tunnel |
+| 受控退出 | 核对 PID 37392 的程序名和 `--profile obsidian-context-stem-win` 后于 16:57:47 仅结束该进程；没有手动启动或主动触发恢复任务 |
+| 周期恢复 | 定时任务于 16:58:40 自行执行，16:58:48 观察到新 PID 44264 ready，约 61 秒恢复；任务随后 Ready、LastTaskResult 0，另一个 local-tools Tunnel 原 PID 保持 |
+| 手动维护 | stop 写入暂停标记；直接检查和真实任务均保持 stopped。start 清除暂停标记后恢复 ready |
+| 最终远端 | 恢复后真实 Windows `obsidian_get_context` 成功，返回当前 STEM 笔记 `01项目/传递过程与非平衡态热力学重写/传递过程与非平衡态热力学.md` 及 1512 字符附近正文 |
+| 静态检查 | Node 脚本语法、Windows PowerShell 语法、package.json 解析和 Git whitespace 检查通过；未修改插件/MCP 协议源码 |
+
+证据保存在忽略的 `.local/qa/windows-tunnel-autostart-20261011.json` 和项目本地
+supervisor 日志。实际注销／登录和整机重启没有执行；已核对登录触发器配置，
+但不能用本轮周期恢复替代真实重启验收。没有改动 Obsidian 笔记、插件设置或
+提案。自动恢复减少本机进程停止造成的不可用，不保证外部网关永不返回 429。
