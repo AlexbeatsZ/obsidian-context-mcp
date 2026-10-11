@@ -206,3 +206,23 @@ Mac 项目忽略的 `.local/qa` 中；没有修改课程笔记。
 supervisor 日志。实际注销／登录和整机重启没有执行；已核对登录触发器配置，
 但不能用本轮周期恢复替代真实重启验收。没有改动 Obsidian 笔记、插件设置或
 提案。自动恢复减少本机进程停止造成的不可用，不保证外部网关永不返回 429。
+
+## Windows 改为仅登录自启和桌面手动启动
+
+日期：2026-10-11，18:13（UTC+8）；主机 META-OMEN。
+用户明确要求取消每分钟检查，只保留开机登录自启，并把手动启动快捷方式
+发送到桌面。本节取代上一节的周期恢复方案；历史验收记录保留。
+
+- 原任务先禁用，再更新为单个本用户 LogonTrigger；导出实际 XML 确认没有
+  TimeTrigger 或 Repetition，状态查询显示 TriggerCount 1、PeriodicChecks false。
+- 登录动作改为原 `tunnel.mjs start`；移除 ensure、暂停标记控制和 supervisor
+  代码。计划任务启动动作返回 0，NextRunTime 为 null，原 Tunnel 身份与凭据保留。
+- 桌面实际创建 `C:/Users/Meta/Desktop/Obsidian MCP.lnk`，目标为 Windows
+  PowerShell，参数指向项目启动脚本和既有绝对 Node 路径，隐藏运行；图标来自
+  `C:/Program Files/Obsidian/Obsidian.exe`。
+- 手动停止 PID 46544 对应 runtime 后，通过实际 `.lnk` 启动，观察到 PID 39104
+  ready；随后真实 Windows `obsidian_get_context` 成功读取当前 STEM 上下文。
+- Node / PowerShell 语法和实际任务、快捷方式配置均已验证。本轮没有注销或
+  重启电脑；没有修改笔记、插件设置、提案或其他 Tunnel。
+
+当前证据在忽略的 `.local/qa/windows-tunnel-login-only-20261011.json`。

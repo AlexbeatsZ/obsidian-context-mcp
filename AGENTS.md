@@ -6,7 +6,7 @@ local STEM vault; no Manage or mobile deployment.
 
 # Current State
 
-- On 2026-10-11, META-OMEN again reproduced gateway SSE 429 with healthy local stdio and a stopped dedicated Tunnel. Manual start restored the real remote call. At the user's request, current-user task `Obsidian Context MCP Tunnel` now checks at login and every minute, starting the original alias only when its process is absent. A controlled process exit recovered automatically in 61 seconds; healthy runtime preservation, manual pause/resume and real remote context all passed. Actual logout/reboot was not tested. The original exit trigger remains unknown; see `docs/ACCEPTANCE.md`.
+- On 2026-10-11, META-OMEN again reproduced gateway SSE 429 with healthy local stdio and a stopped dedicated Tunnel. Manual start restored it. The user subsequently chose login startup only and manual recovery, so the task now has only one LogonTrigger and the minute check / supervisor logic has been removed. Desktop `Obsidian MCP.lnk` starts the existing Tunnel in the background; actual shortcut launch from stopped restored ready and the real remote tool succeeded. Actual logout/reboot was not tested. See `docs/ACCEPTANCE.md`.
 - TypeScript v0.1.0 plugin and independent stdio MCP bridge implemented; deployed to the local STEM vaults on Windows and macOS.
 - 43 meaningful tests, type checking and production build pass on both hosts. Independent stdio clients discover all six tools.
 - Windows real UI verifies source/rendered selections, browser blur, clear selection, inline review for Markdown edits and file operations, partial accepts, conflict blocking, create, linked move, attachment rename, trash and local restoration. The former full-page review view was removed. Mac UI review remains unverified.
@@ -23,7 +23,7 @@ local STEM vault; no Manage or mobile deployment.
 
 # Active Work
 
-- Windows Tunnel automation is installed on META-OMEN and live process-exit recovery passed. Only actual logout/reboot acceptance remains untested. Automatic checks preserve a running poller even if readiness temporarily fails; manual `tunnel:stop` persists a pause until `tunnel:start`. Read `docs/design/tunnel-runtime.md` before changing lifecycle behavior.
+- META-OMEN uses login startup only; no periodic checks or automatic process restart. The desktop Obsidian MCP shortcut is the user's manual recovery entry. Only actual logout/reboot acceptance remains untested. Read `docs/design/tunnel-runtime.md` before changing lifecycle behavior.
 - Acceptance scroll jump fixed on ROG (2026-10-07): whole-document replacement moved the cursor from line 39 to the start and scrollTop from 882 to 76 in the same leaf. `ObsidianPort.write()` now sends local character changes; `InlineReview` maps a CodeMirror scroll snapshot through writes and refreshes until the decision finishes. Real partial/final accepts, reverse selection, cursor outside viewport, Accept all and Reject all passed. Preserve this behavior; use only `STEM/MCP验收测试` for write tests. OMEN and Mac have not independently verified this fix.
 - All review appears in Markdown note editors, deployed to STEM and packaged. Text candidates appear under their original lines; new files, moves, attachments and trash appear in compact blocks at the top of a note. See `docs/design/workflow.md` before changing presentation or routing.
 - Remote test proposal `6eece0ce-1037-4d2e-bc42-c66623497325` is completed/accepted; `MCP验收测试/ChatGPT远程候选.md` exists. Two subsequent inline UI test proposals were rejected without writing their targets.
@@ -36,7 +36,7 @@ local STEM vault; no Manage or mobile deployment.
 - `npm ci`, `npm run check`.
 - `npm run deploy -- C:/Users/Meta/Documents/Obsidian/STEM` (Windows) or `npm run deploy -- /Users/meta/Documents/Obsidian/STEM` (macOS).
 - `npm run mcp`; `npm run tunnel:start`, `tunnel:status`, `tunnel:stop`.
-- Windows automation: `npm run tunnel:autostart:install`, `tunnel:autostart:status`, `tunnel:autostart:uninstall`; `npm run tunnel:ensure` runs one recovery check. After lifecycle changes, check Node/PowerShell syntax and the actual registered task, then validate targeted process-exit recovery, pause/resume and a real remote tool call. Ignored `.local/qa/windows-tunnel-autostart-20261011.json` records this acceptance.
+- Windows startup: `npm run tunnel:autostart:install`, `tunnel:autostart:status`, `tunnel:autostart:uninstall`; `npm run tunnel:shortcut` creates the desktop launcher. Validate script syntax, the single login trigger, a real shortcut launch from stopped and a real remote tool. Current ignored evidence: `.local/qa/windows-tunnel-login-only-20261011.json`.
 - `npm run package` creates a plugin ZIP in `dist`; `npm run rollback` restores this plugin's prior deployment only and keeps local recovery state.
 - Review-engine, transport or link changes require their corresponding tests.
 - Credentials and state belong only in ignored `.local/` / `.env.local`.
