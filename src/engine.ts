@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { randomUUID, createHash } from "node:crypto";
-import { applyEdits, isText, makeHunks, materialize, revision, safePath, type Decision, type Hunk, type Snapshot, type VaultPort } from "./core";
+import { applyEdits, isText, makeHunks, materialize, merge3, rebaseHunks, revision, safePath, type Decision, type Hunk, type Snapshot, type VaultPort } from "./core";
 import { fail, type Operation, type ProposalInput } from "./protocol";
 import { planMoveLinks, referencesTo, type LinkChange } from "./links";
 import { DiskStore } from "./store";
@@ -12,6 +12,8 @@ export interface PreparedOperation {
   expected_revision?: string; applied_steps: string[]; recovery_ids: string[];
   restored?: boolean;
   recovered_steps?: string[];
+  // Set when the error came from a vault check that may pass again later.
+  stale?: boolean;
 }
 export interface Proposal {
   id: string; request_id: string; fingerprint: string; title: string; vault: string;
@@ -46,11 +48,21 @@ export class ReviewEngine {
       // Never replay an interrupted write blindly; preserve its baseline and block.
       j.state="uncertain"; await this.journals.write(j.id,j);
       const p=this.proposals.get(j.proposal_id); const op=p?.operations.find(o=>o.id===j.operation_id);
-      if(p&&op) { op.error="上次提交被中断，请检查恢复记录后重新生成候选。"; await this.save(p); }
+      if(p&&op) { op.error="上次提交被中断，请检查恢复记录后重新生成候选。"; delete op.stale; await this.save(p); }
     }
+    // Older builds stored vault-check conflicts as permanent; let them be rechecked.
+    for(const p of this.proposals.values())for(const op of p.operations)if(op.error&&op.stale===undefined&&/已改变，请重新读取并生成候选|新建目标已存在|移动目标已存在|关联链接已改变/.test(op.error))op.stale=true;
+    // A recovery that failed before reversing any step left nothing half-done.
+    for(const p of this.proposals.values())if(p.recovery_error&&!p.operations.some(op=>op.recovered_steps?.length)){delete p.recovery_error;await this.save(p);}
     if(validate)await this.validatePending();
   }
-  validatePending(){return this.enqueue(async()=>{for(const p of this.proposals.values())for(const op of p.operations)if(this.pending(op)&&!op.error){try{await this.preflight(op);}catch(e){op.error=(e as Error).message;await this.save(p);}}});}
+  validatePending(){return this.enqueue(async()=>{for(const p of this.proposals.values())for(const op of p.operations)if(this.pending(op))await this.recheck(p,op);});}
+  private async recheck(p:Proposal,op:PreparedOperation){
+    if(op.error&&!op.stale)return;
+    const before=op.error;
+    try{await this.preflight(op);}catch{}
+    if(op.error!==before)await this.save(p);
+  }
   async save(p:Proposal) { await this.store.write(p.id,p); this.onChange(); }
   pending(op:PreparedOperation) { return !op.restored&&(op.input.kind==="edit"?op.hunks.some(h=>h.decision==="pending"):op.decision==="pending"); }
   get(id:string) { return this.proposals.get(id)??fail("NOT_FOUND","找不到该候选修改。"); }
@@ -94,10 +106,20 @@ export class ReviewEngine {
     this.proposals.set(p.id,p); await this.save(p); return this.status(p.id);
   }); }
   private async preflight(op:PreparedOperation) {
+    if(op.error&&!op.stale) fail("CONFLICT",op.error);
+    try { await this.verify(op); } catch(e) { op.error=(e as Error).message; op.stale=true; throw e; }
+    if(op.stale) { delete op.error; delete op.stale; }
+  }
+  private async verify(op:PreparedOperation) {
     await this.vault.validate(op.input.path);
-    if(op.error) fail("CONFLICT",op.error);
     if(op.input.kind==="create") { if(this.vault.exists(op.input.path)) fail("CONFLICT","新建目标已存在。"); return; }
     const current=await this.vault.read(op.input.path);
+    if(current.revision!==op.expected_revision&&op.input.kind==="edit"&&current.text!==undefined&&op.baseline?.text!==undefined&&revision(materialize(op.baseline.text,op.hunks))===op.expected_revision) {
+      // User edits elsewhere in the note carry the remaining hunks along.
+      const hunks=rebaseHunks(op.baseline.text,op.hunks,current.text);
+      if(!hunks) fail("CONFLICT",`${op.input.path} 中待审阅的行已被改动，剩余候选无法安全定位。`);
+      op.baseline=current; op.hunks=hunks; op.expected_revision=current.revision; return;
+    }
     if(current.revision!==op.expected_revision) fail("CONFLICT",`${op.input.path} 已改变，请重新读取并生成候选。`);
     if(op.input.kind==="move") {
       await this.vault.validate(op.input.to);
@@ -107,24 +129,22 @@ export class ReviewEngine {
     }
   }
   async invalidate(p:string) {
-    return this.enqueue(async()=>{ for(const proposal of this.proposals.values()) for(const op of proposal.operations) if(this.pending(op)&&!op.error&&(op.input.path===p||op.links.some(l=>l.snapshot.path===p))) {
-      try { await this.preflight(op); } catch(e) { op.error=(e as Error).message; await this.save(proposal); }
-    } });
+    return this.enqueue(async()=>{ for(const proposal of this.proposals.values()) for(const op of proposal.operations) if(this.pending(op)&&(op.input.path===p||op.links.some(l=>l.snapshot.path===p))) await this.recheck(proposal,op); });
   }
   decide(id:string,opId:string,decision:Exclude<Decision,"pending">,hunkId?:string) { return this.enqueue(async()=>{
     const p=this.get(id); const op=p.operations.find(o=>o.id===opId)??fail("NOT_FOUND","找不到操作。");
     if(decision==="accepted"&&p.recovery_error)fail("RECOVERY_REQUIRED",p.recovery_error);
-    try { await this.decideInternal(p,op,decision,hunkId); } catch(e) { op.error=(e as Error).message; await this.save(p); throw e; }
+    try { await this.decideInternal(p,op,decision,hunkId); } catch(e) { if(!op.stale)op.error=(e as Error).message; await this.save(p); throw e; }
     return this.status(id);
   }); }
   decideAll(id:string,decision:Exclude<Decision,"pending">) { return this.enqueue(async()=>{
     const p=this.get(id);
     if(decision==="accepted"&&p.recovery_error)fail("RECOVERY_REQUIRED",p.recovery_error);
     if(decision==="accepted") for(const op of p.operations.filter(o=>this.pending(o))) {
-      try { await this.preflight(op); } catch(e) { op.error=(e as Error).message; await this.save(p); throw e; }
+      try { await this.preflight(op); } catch(e) { await this.save(p); throw e; }
     }
     for(const op of p.operations.filter(o=>this.pending(o))) {
-      try { await this.decideInternal(p,op,decision); } catch(e) { op.error=(e as Error).message; await this.save(p); throw e; }
+      try { await this.decideInternal(p,op,decision); } catch(e) { if(!op.stale)op.error=(e as Error).message; await this.save(p); throw e; }
     }
     return this.status(id);
   }); }
@@ -172,6 +192,7 @@ export class ReviewEngine {
     const p=this.get(id); const records=(await this.journals.all<Journal>()).filter(j=>j.proposal_id===id&&j.state!=="restored");
     // Revert in the recorded execution order, never silently overwrite later work.
     const order=p.operations.flatMap(o=>o.recovery_ids); records.sort((a,b)=>order.indexOf(b.id)-order.indexOf(a.id));
+    let reversed=0;
     try{for(const j of records) {
       const target=j.kind==="move"?j.to!:j.path;
       if(j.state==="uncertain") {
@@ -189,14 +210,24 @@ export class ReviewEngine {
         } else if(source)fail("RECOVERY_REQUIRED","中断删除的文件发生变化，请检查本地备份。");
         j.state="applied";await this.journals.write(j.id,j);
       }
-      if(j.after) { const current=await this.vault.read(target); if(current.revision!==j.after.revision)fail("CONFLICT",`${target} 已在提交后改变，无法自动恢复。`); }
+      if(j.after) {
+        const current=await this.vault.read(target);
+        if(current.revision!==j.after.revision) {
+          // Undo only this step's lines when later edits touched other lines.
+          const merged=j.kind==="write"&&j.backup&&current.text!==undefined&&j.after.text!==undefined?merge3(j.after.text,current.text,Buffer.from(await fs.readFile(j.backup)).toString("utf8")):null;
+          if(merged===null)fail("CONFLICT",j.kind==="write"?`${target} 中这次接受的行在之后又被改动，无法自动撤销。`:`${target} 已在提交后改变，无法自动恢复。`);
+          await this.vault.restore(j.path,Buffer.from(merged,"utf8"),current.revision);
+          j.state="restored"; await this.journals.write(j.id,j); reversed++;
+          await this.recordRecovery(p,j); continue;
+        }
+      }
       else if(this.vault.exists(target)) fail("CONFLICT",`${target} 已重新出现，无法覆盖。`);
       if(j.kind==="create") await this.vault.trash(target,j.after!.revision);
       else if(j.kind==="move") { if(this.vault.exists(j.path))fail("CONFLICT","原路径已存在。"); await this.vault.move(target,j.path,j.after!.revision); }
       else if(j.backup) await this.vault.restore(j.path,await fs.readFile(j.backup),j.after?.revision??null);
-      j.state="restored"; await this.journals.write(j.id,j);
+      j.state="restored"; await this.journals.write(j.id,j); reversed++;
       await this.recordRecovery(p,j);
-    }}catch(e){p.recovery_error=(e as Error).message;await this.save(p);throw e;}
+    }}catch(e){if(reversed||p.recovery_error)p.recovery_error=(e as Error).message;await this.save(p);throw e;}
     for(const op of p.operations){op.restored=true;delete op.error;}
     delete p.recovery_error;
     await this.save(p);

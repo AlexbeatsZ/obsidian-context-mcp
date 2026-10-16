@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ReviewEngine } from "../src/engine";
-import { inlineHunks, firstPendingOffset, pickReviewHost, changedLinePairs } from "../src/inline-model";
+import { inlineHunks, firstPendingOffset, pickReviewHost, changedLinePairs, wordRanges, lineCount } from "../src/inline-model";
 import { materialize } from "../src/core";
 import { MemoryVault } from "./support";
 import { temporary } from "./temp";
@@ -31,7 +31,8 @@ test("inline preview suppresses stale documents and uses normalized CRLF/UTF16 p
   const op:any={input:{kind:"edit"},baseline:{text:baseline},hunks:[{id:"h1",start:0,end:5,replacement:"更长😀\r\n额外\r\n",decision:"accepted"},{id:"h2",start:9,end:12,replacement:"乙改\r\n",decision:"pending"}]};
   const doc=materialize(baseline,op.hunks).replace(/\r\n/g,"\n"),blocks=inlineHunks(op,doc);
   assert.equal(doc.slice(blocks[0].from,blocks[0].to),"乙\n");assert.equal(blocks[0].replacement,"乙改\n");
-  assert.deepEqual(inlineHunks(op,doc+"手改"),[]);op.error="conflict";assert.deepEqual(inlineHunks(op,doc),[]);
+  assert.deepEqual(inlineHunks(op,"前置\n"+doc+"手改").map(h=>h.from),[blocks[0].from+3]);
+  assert.deepEqual(inlineHunks(op,doc.replace("乙\n","乙手改\n")),[]);op.error="conflict";assert.deepEqual(inlineHunks(op,doc),[]);
 });
 
 test("inline empty-note insertion and deletion remain actionable without candidate bytes in document",()=>{
@@ -57,4 +58,11 @@ test("linked move preview shows changed lines without unrelated note content",()
   assert.deepEqual(changedLinePairs("开头\n[[旧名|别名]]\n结尾\n","开头\n[[新名|别名]]\n结尾\n"),[
     {oldText:"[[旧名|别名]]\n",newText:"[[新名|别名]]\n"}
   ]);
+});
+
+test("word ranges highlight changed segments and skip unrelated rewrites",()=>{
+  const r=wordRanges("吉布斯自由能的全微分","吉布斯自由能的逐项积分")!;
+  assert.ok(r.removed.length&&r.added.length);
+  assert.equal(wordRanges("完全不同的一句话","Another sentence entirely"),null);
+  assert.equal(lineCount("a\nb\n"),2);assert.equal(lineCount(""),0);
 });

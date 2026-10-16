@@ -1,26 +1,38 @@
-import { App, MarkdownView, Notice, editorInfoField } from "obsidian";
+import { App, Component, MarkdownRenderer, MarkdownView, Notice, editorInfoField, setIcon, setTooltip } from "obsidian";
 import { EditorState, StateEffect, StateField, type ChangeSet, type Extension, type Range } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view";
 import type { ReviewEngine, Proposal, PreparedOperation } from "./engine";
-import { changedLinePairs, firstPendingOffset, inlineHunks, pickReviewHost, type InlineHunk } from "./inline-model";
+import { changedLinePairs, firstPendingOffset, inlineHunks, lineCount, pickReviewHost, wordRanges, type InlineHunk, type WordRanges } from "./inline-model";
 
 const refreshInline=StateEffect.define<null>();
 interface Model {proposal:Proposal;operation:PreparedOperation;hunks:InlineHunk[];}
+interface ButtonSpec {label:string;icon?:string;tooltip?:string;cls?:string;disabled?:boolean;confirm?:string;action:()=>Promise<unknown>;}
+const RECENT_COMPLETED=10;
+
+function el<K extends keyof HTMLElementTagNameMap>(parent:HTMLElement,tag:K,cls?:string,text?:string){
+  const node=parent.ownerDocument.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=text;parent.append(node);return node;
+}
 
 export class InlineReview {
   selected:string|null=null;
   hostPath:string|null=null;
   busy=false;
+  // Hunk or file card currently showing source instead of rendered Markdown.
+  sourceKey:string|null=null;
+  private confirming:string|null=null;
+  private dismissed=new Set<string>();
   private views=new Set<EditorView>();
+  private cursor=new Map<EditorView,number>();
   private decisionScroll=new Map<EditorView,StateEffect<unknown>>();
   private scheduled=false;
-  constructor(private app:App,private engine:ReviewEngine,private pauseContext:()=>void,private preferredContext:()=>string|null){}
+  constructor(readonly app:App,readonly engine:ReviewEngine,private pauseContext:()=>void,private preferredContext:()=>string|null){}
 
   private proposals(){return [...this.engine.proposals.values()].sort((a,b)=>b.created_at.localeCompare(a.created_at));}
+  private pendingProposal(p:Proposal){return p.operations.some(op=>this.engine.pending(op));}
   private proposalFor(state:EditorState):Proposal|null {
     const path=state.field(editorInfoField,false)?.file?.path;if(!path?.endsWith(".md"))return null;
     if(this.hostPath===path&&this.selected){const explicit=this.engine.proposals.get(this.selected);if(explicit)return explicit;}
-    return this.proposals().find(p=>p.operations.some(op=>op.input.kind==="edit"&&op.input.path===path&&this.engine.pending(op)))??null;
+    return this.proposals().find(p=>!this.dismissed.has(p.id)&&p.operations.some(op=>op.input.kind==="edit"&&op.input.path===path&&this.engine.pending(op)))??null;
   }
   model(state:EditorState):Model|null {
     const path=state.field(editorInfoField,false)?.file?.path;
@@ -29,6 +41,15 @@ export class InlineReview {
     return operation?{proposal,operation,hunks:inlineHunks(operation,state.doc.toString())}:null;
   }
   private extraOperations(p:Proposal){return p.operations.filter(op=>op.input.kind!=="edit"||!op.input.path.endsWith(".md"));}
+  private counts(p:Proposal){
+    let pending=0,accepted=0,rejected=0;
+    for(const op of p.operations){
+      const decisions=op.input.kind==="edit"?op.hunks.map(h=>h.decision):[op.decision];
+      for(const d of decisions){if(op.restored)continue;if(d==="pending")pending++;else if(d==="accepted")accepted++;else rejected++;}
+    }
+    return {pending,accepted,rejected};
+  }
+  private undoable(p:Proposal){return p.operations.some(op=>op.recovery_ids.length&&!op.restored);}
 
   extension():Extension {
     const owner=this;
@@ -47,31 +68,13 @@ export class InlineReview {
       }
       render(){
         this.bar?.remove();this.bar=null;
-        const p=owner.proposalFor(this.view.state);if(!p)return;
-        const host=this.view.dom.closest(".markdown-source-view")?.parentElement;if(!host)return;
-        const bar=host.ownerDocument.createElement("div");bar.className="ocm-inline-toolbar";this.bar=bar;
-        const picker=bar.ownerDocument.createElement("select");picker.setAttribute("aria-label","选择候选修改");
-        for(const proposal of owner.proposals()){
-          const option=picker.ownerDocument.createElement("option");option.value=proposal.id;option.textContent=proposal.title;picker.append(option);
-        }
-        picker.value=p.id;picker.onchange=()=>void owner.open(picker.value);bar.append(picker);
-        const files=p.operations.filter(op=>op.input.kind==="edit"&&op.input.path.endsWith(".md"));
-        if(files.length>1){
-          const filePicker=bar.ownerDocument.createElement("select");filePicker.setAttribute("aria-label","审阅文件");
-          for(const op of files){const option=filePicker.ownerDocument.createElement("option");option.value=op.input.path;option.textContent=op.input.path;filePicker.append(option);}
-          filePicker.value=this.view.state.field(editorInfoField,false)?.file?.path??"";
-          filePicker.onchange=()=>void owner.open(p.id,filePicker.value);bar.append(filePicker);
-        }
-        const pending=p.operations.some(op=>owner.engine.pending(op));
-        if(pending){
-          owner.button(bar,"全部接受",()=>owner.engine.decideAll(p.id,"accepted"),!!p.recovery_error||p.operations.some(op=>!!op.error));
-          owner.button(bar,"全部拒绝",()=>owner.engine.decideAll(p.id,"rejected"));
-        }
-        if(p.operations.some(op=>op.recovery_ids.length&&!op.restored))owner.button(bar,"恢复",()=>owner.engine.recover(p.id));
-        if(p.recovery_error){const error=bar.ownerDocument.createElement("span");error.className="ocm-error";error.textContent=p.recovery_error;bar.append(error);}
+        const host=this.view.dom.closest(".markdown-source-view")?.parentElement;
+        const p=owner.proposalFor(this.view.state);if(!p||!host)return;
+        const bar=host.ownerDocument.createElement("div");bar.className="ocm-review-bar";this.bar=bar;
+        owner.renderToolbar(bar,this.view,p);
         host.insertBefore(bar,host.firstChild);
       }
-      destroy(){owner.views.delete(this.view);owner.decisionScroll.delete(this.view);this.bar?.remove();}
+      destroy(){owner.views.delete(this.view);owner.cursor.delete(this.view);owner.decisionScroll.delete(this.view);this.bar?.remove();}
     });
     const keepDecisionScroll=EditorState.transactionExtender.of(tr=>{
       if(!tr.docChanged)return null;
@@ -79,42 +82,145 @@ export class InlineReview {
       const snapshot=view&&owner.decisionScroll.get(view);
       return snapshot?{effects:snapshot.map(tr.changes)!}:null;
     });
-    return [field,toolbar,keepDecisionScroll];
+    // Like Live Preview: clicking back into the note hides candidate source again.
+    const backToRendered=EditorView.domEventHandlers({mousedown:()=>{if(owner.sourceKey){owner.sourceKey=null;owner.refresh();}return false;}});
+    return [field,toolbar,keepDecisionScroll,backToRendered];
+  }
+
+  private renderToolbar(bar:HTMLElement,view:EditorView,p:Proposal){
+    const path=view.state.field(editorInfoField,false)?.file?.path??"";
+    const row=el(bar,"div","ocm-review-row");
+    const icon=el(row,"span","ocm-review-icon");setIcon(icon,"git-compare-arrows");
+    const picker=el(row,"select","dropdown ocm-review-select");setTooltip(picker,"切换候选提案");
+    const pending=this.proposals().filter(x=>this.pendingProposal(x));
+    const listed=[...pending,...this.proposals().filter(x=>!this.pendingProposal(x)).slice(0,RECENT_COMPLETED)];
+    if(!listed.includes(p))listed.push(p);
+    for(const proposal of listed){
+      const option=el(picker,"option",undefined,this.pendingProposal(proposal)?proposal.title:`${proposal.title}（已处理）`);option.value=proposal.id;
+    }
+    picker.value=p.id;picker.onchange=()=>void this.open(picker.value);
+    const files=p.operations.filter(op=>op.input.kind==="edit"&&op.input.path.endsWith(".md"));
+    if(files.length>1){
+      const filePicker=el(row,"select","dropdown ocm-review-select");setTooltip(filePicker,"切换本提案涉及的笔记");
+      for(const op of files){const option=el(filePicker,"option",undefined,`${op.input.path.split("/").pop()}${this.engine.pending(op)?"":" ✓"}`);option.value=op.input.path;}
+      filePicker.value=path;filePicker.onchange=()=>void this.open(p.id,filePicker.value);
+    }
+    const model=this.model(view.state);
+    if(model?.hunks.length){
+      const added=model.hunks.reduce((n,h)=>n+lineCount(h.replacement),0);
+      const removed=model.hunks.reduce((n,h)=>n+lineCount(view.state.doc.sliceString(h.from,h.to)),0);
+      const stat=el(row,"span","ocm-review-stat");setTooltip(stat,"本笔记待审阅的新增 / 删除行数");
+      el(stat,"span","ocm-stat-add",`+${added}`);el(stat,"span","ocm-stat-del",`−${removed}`);
+      const nav=el(row,"span","ocm-review-nav");
+      const current=Math.min(this.cursor.get(view)??-1,model.hunks.length-1);
+      this.iconButton(nav,"chevron-up","上一处修改",()=>this.navigate(view,-1));
+      el(nav,"span","ocm-review-index",`${current<0?"–":current+1} / ${model.hunks.length}`);
+      this.iconButton(nav,"chevron-down","下一处修改",()=>this.navigate(view,1));
+    }
+    const {pending:left,accepted,rejected}=this.counts(p);
+    el(row,"span","ocm-review-progress",left?`${left} 处待审${accepted?` · 已接受 ${accepted}`:""}${rejected?` · 已拒绝 ${rejected}`:""}`:"已全部处理");
+    el(row,"span","ocm-review-spacer");
+    const actions=el(row,"span","ocm-review-actions");
+    const blocked=!!p.recovery_error||p.operations.some(op=>this.engine.pending(op)&&!!op.error);
+    if(this.undoable(p))this.button(actions,{label:"撤销已接受",icon:"undo-2",cls:"ocm-btn-ghost",confirm:`undo:${p.id}`,
+      tooltip:"把本提案已写入笔记的修改还原回提案前，并结束本提案（剩余候选一并作废）。你之后在别处的编辑会保留。",action:()=>this.engine.recover(p.id)});
+    if(left){
+      const some=accepted+rejected>0;
+      this.button(actions,{label:some?"拒绝其余":"全部拒绝",icon:"x",tooltip:"丢弃所有尚未处理的候选，不改动笔记；已接受的修改保持不变。",action:()=>this.engine.decideAll(p.id,"rejected")});
+      this.button(actions,{label:some?"接受其余":"全部接受",icon:"check-check",cls:"mod-cta",disabled:blocked,
+        tooltip:blocked?"有候选处于冲突状态，处理冲突后才能批量接受。":"把所有尚未处理的候选写入笔记。",action:()=>this.engine.decideAll(p.id,"accepted")});
+    }
+    this.iconButton(actions,"x-circle","关闭审阅（候选保留，可从状态栏「笔记 MCP」重新打开）",async()=>this.dismiss(p.id));
+    this.renderBanner(bar,p,path);
+  }
+  private renderBanner(bar:HTMLElement,p:Proposal,path:string){
+    const conflicts=p.operations.filter(op=>this.engine.pending(op)&&op.error);
+    if(!conflicts.length&&!p.recovery_error)return;
+    const banner=el(bar,"div","ocm-review-banner");
+    const icon=el(banner,"span","ocm-review-banner-icon");setIcon(icon,"alert-triangle");
+    const text=el(banner,"span","ocm-review-banner-text");
+    if(p.recovery_error)text.textContent=`撤销只完成了一部分：${p.recovery_error}`;
+    else if(conflicts.some(op=>op.stale&&op.input.path===path))text.textContent="你改动了候选所在的行，剩余候选已隐藏。撤销这些改动（Ctrl+Z）后候选会自动回来，也可以直接放弃剩余候选。";
+    else text.textContent=conflicts.map(op=>op.error).join("；");
+    if(conflicts.length)this.button(banner,{label:"放弃剩余候选",icon:"trash-2",tooltip:"拒绝所有尚未处理的候选，不改动笔记。",action:()=>this.engine.decideAll(p.id,"rejected")});
   }
 
   private decorations(state:EditorState){
     const proposal=this.proposalFor(state);if(!proposal)return Decoration.none;
+    const path=state.field(editorInfoField,false)?.file?.path??"";
     const ranges:Range<Decoration>[]=[];
-    if(this.hostPath===state.field(editorInfoField,false)?.file?.path&&this.extraOperations(proposal).length)
-      ranges.push(Decoration.widget({widget:new FileOperationsWidget(this,proposal),block:true,side:-1}).range(0));
+    if(this.hostPath===path&&this.extraOperations(proposal).length)
+      ranges.push(Decoration.widget({widget:new FileOperationsWidget(this,proposal,path,this.cardSignature(proposal)),block:true,side:-1}).range(0));
     const model=this.model(state);
-    if(model)for(const h of model.hunks){
+    if(model)model.hunks.forEach((h,index)=>{
+      const oldText=state.doc.sliceString(h.from,h.to);
+      const words=wordRanges(oldText.replace(/\n$/,""),h.replacement.replace(/\n$/,""));
       if(h.to>h.from){
         const last=state.doc.lineAt(Math.max(h.from,h.to-1));
-        for(let line=state.doc.lineAt(h.from).number;line<=last.number;line++)ranges.push(Decoration.line({class:"ocm-inline-removed"}).range(state.doc.line(line).from));
+        for(let line=state.doc.lineAt(h.from).number;line<=last.number;line++)ranges.push(Decoration.line({class:"ocm-line-removed"}).range(state.doc.line(line).from));
+        for(const [a,b] of words?.removed??[])if(b>a)ranges.push(Decoration.mark({class:"ocm-word-removed"}).range(h.from+a,h.from+b));
       }
       const at=h.to>h.from?state.doc.lineAt(h.to-1).to:h.from;
-      ranges.push(Decoration.widget({widget:new IncomingWidget(this,model.proposal.id,model.operation.id,h),block:true,side:h.to>h.from||at===state.doc.length?1:-1}).range(at));
-    }
+      const key=`${model.proposal.id}:${model.operation.id}:${h.id}`;
+      ranges.push(Decoration.widget({widget:new IncomingWidget(this,model.proposal.id,model.operation.id,h,path,words,index,model.hunks.length,this.sourceKey===key),block:true,side:h.to>h.from||at===state.doc.length?1:-1}).range(at));
+    });
     return Decoration.set(ranges,true);
   }
+  private cardSignature(p:Proposal){
+    return JSON.stringify([this.sourceKey,p.recovery_error,p.operations.map(op=>[op.decision,op.error,op.restored,op.hunks.map(h=>h.decision)])]);
+  }
 
-  button(parent:HTMLElement,label:string,action:()=>Promise<unknown>,disabled=false){
-    const button=parent.ownerDocument.createElement("button");button.textContent=label;button.type="button";button.disabled=this.busy||disabled;
+  private navigate(view:EditorView,step:number){
+    const model=this.model(view.state);if(!model?.hunks.length)return Promise.resolve();
+    const n=model.hunks.length,current=this.cursor.get(view)??(step>0?-1:0);
+    const next=((current+step)%n+n)%n;this.cursor.set(view,next);
+    view.dispatch({effects:[EditorView.scrollIntoView(model.hunks[next].from,{y:"center"}),refreshInline.of(null)]});
+    return Promise.resolve();
+  }
+  showSource(key:string){if(this.sourceKey!==key){this.sourceKey=key;this.refresh();}}
+  private dismiss(id:string){
+    this.dismissed.add(id);if(this.selected===id){this.selected=null;this.hostPath=null;}
+    this.refresh();
+  }
+
+  button(parent:HTMLElement,spec:ButtonSpec){
+    const button=el(parent,"button",`ocm-btn${spec.cls?" "+spec.cls:""}`);button.type="button";
+    const confirming=!!spec.confirm&&this.confirming===spec.confirm;
+    if(spec.icon){const icon=el(button,"span","ocm-btn-icon");setIcon(icon,spec.icon);}
+    el(button,"span","ocm-btn-label",confirming?"再点一次确认":spec.label);
+    if(confirming)button.classList.add("mod-warning");
+    if(spec.tooltip)setTooltip(button,spec.tooltip);
+    button.disabled=this.busy||!!spec.disabled;
     button.addEventListener("mousedown",e=>e.preventDefault());
-    button.onclick=()=>{void this.run(action);};parent.append(button);return button;
+    button.onclick=e=>{
+      e.stopPropagation();
+      if(spec.confirm&&!confirming){
+        this.confirming=spec.confirm;this.refresh();
+        window.setTimeout(()=>{if(this.confirming===spec.confirm){this.confirming=null;this.refresh();}},4000);
+        return;
+      }
+      this.confirming=null;void this.run(spec.action);
+    };
+    return button;
+  }
+  private iconButton(parent:HTMLElement,icon:string,tooltip:string,action:()=>Promise<unknown>){
+    const button=el(parent,"button","clickable-icon ocm-icon-btn");button.type="button";setIcon(button,icon);setTooltip(button,tooltip);button.setAttribute("aria-label",tooltip);
+    button.addEventListener("mousedown",e=>e.preventDefault());
+    button.onclick=e=>{e.stopPropagation();void action();};
+    return button;
   }
   decideHunk(proposal:string,operation:string,hunk:string,decision:"accepted"|"rejected"){
     return this.engine.decide(proposal,operation,decision,hunk);
   }
+  private setBusy(busy:boolean){this.busy=busy;for(const view of this.views)view.dom.classList.toggle("ocm-review-busy",busy);}
   private async run(action:()=>Promise<unknown>){
     if(this.busy)return;
     for(const view of this.views)this.decisionScroll.set(view,view.scrollSnapshot());
-    this.busy=true;this.refresh();
+    this.setBusy(true);this.refresh();
     try{await action();}catch(error){new Notice((error as Error).message,8000);}finally{
       const p=this.selected?this.engine.proposals.get(this.selected):null;
-      if(p&&!p.operations.some(op=>this.engine.pending(op))){this.selected=null;this.hostPath=null;}
-      this.busy=false;this.refresh();
+      if(p&&!this.pendingProposal(p)){this.selected=null;this.hostPath=null;}
+      this.setBusy(false);this.refresh();
     }
   }
   refresh(){
@@ -129,65 +235,84 @@ export class InlineReview {
     });
   }
 
-  private text(parent:HTMLElement,content:string,cls:string){
-    if(!content)return;
-    const block=parent.ownerDocument.createElement("pre");block.className=cls;block.textContent=content;parent.append(block);
+  // Rendered like Live Preview; a click shows the source, clicking the note hides it.
+  renderMarkdown(parent:HTMLElement,text:string,sourcePath:string,key:string,component:Component,cls:string,words?:[number,number][]){
+    const body=el(parent,"div",`ocm-diff-body ${cls}`);
+    if(this.sourceKey===key||!sourcePath.endsWith(".md")){
+      body.classList.add("is-source");
+      const source=el(body,"div","ocm-diff-source");
+      let at=0;
+      for(const [a,b] of words??[]){if(a>at)source.append(text.slice(at,a));el(source,"span",cls==="ocm-diff-add"?"ocm-word-added":"ocm-word-removed",text.slice(a,b));at=b;}
+      source.append(text.slice(at));
+      return body;
+    }
+    const rendered=el(body,"div","ocm-diff-rendered markdown-rendered");
+    void MarkdownRenderer.render(this.app,text,rendered,sourcePath,component);
+    setTooltip(body,"点击查看源码",{delay:600});
+    body.addEventListener("click",e=>{if(!(e.target instanceof Element&&e.target.closest("a")))this.showSource(key);});
+    return body;
   }
-  private changes(parent:HTMLElement,before:string,after:string){
+  private lines(parent:HTMLElement,before:string,after:string){
     for(const pair of changedLinePairs(before,after)){
-      this.text(parent,pair.oldText,"ocm-inline-file-old");
-      this.text(parent,pair.newText,"ocm-inline-file-new");
+      const words=wordRanges(pair.oldText,pair.newText);
+      if(pair.oldText)this.plain(parent,pair.oldText,"ocm-diff-del",words?.removed);
+      if(pair.newText)this.plain(parent,pair.newText,"ocm-diff-add",words?.added);
     }
   }
-  renderOperation(parent:HTMLElement,p:Proposal,op:PreparedOperation){
-    const card=parent.ownerDocument.createElement("section");card.className="ocm-inline-file";parent.append(card);
-    const heading=card.ownerDocument.createElement("div");heading.className="ocm-inline-file-head";card.append(heading);
-    const kind=heading.ownerDocument.createElement("span");kind.className="ocm-inline-file-kind";
-    kind.textContent={edit:"编辑",create:"新建",move:"移动",trash:"回收"}[op.input.kind];heading.append(kind);
-    const path=heading.ownerDocument.createElement("strong");path.textContent=op.input.path;heading.append(path);
-    if(op.input.kind==="move"){const dest=heading.ownerDocument.createElement("span");dest.textContent=`→ ${op.input.to}`;heading.append(dest);}
+  private plain(parent:HTMLElement,text:string,cls:string,words?:[number,number][]){
+    const body=el(parent,"div",`ocm-diff-body is-source ${cls}`);const source=el(body,"div","ocm-diff-source");
+    let at=0;const value=text.replace(/\n$/,"");
+    for(const [a,b] of words??[]){if(a>=value.length)break;if(a>at)source.append(value.slice(at,a));el(source,"span",cls==="ocm-diff-add"?"ocm-word-added":"ocm-word-removed",value.slice(a,Math.min(b,value.length)));at=b;}
+    if(at<value.length)source.append(value.slice(at));
+  }
+  renderOperation(parent:HTMLElement,p:Proposal,op:PreparedOperation,component:Component){
+    const card=el(parent,"section",`ocm-op-card ocm-op-${op.input.kind}`);
+    const heading=el(card,"div","ocm-op-head");
+    const badge=el(heading,"span","ocm-op-badge",{edit:"编辑",create:"新建",move:"移动",trash:"删除"}[op.input.kind]);
+    badge.dataset.kind=op.input.kind;
+    el(heading,"span","ocm-op-path",op.input.path);
+    if(op.input.kind==="move"){const arrow=el(heading,"span","ocm-op-arrow");setIcon(arrow,"arrow-right");el(heading,"span","ocm-op-path",op.input.to);}
     const pending=this.engine.pending(op);
-    if(op.error){const error=card.ownerDocument.createElement("div");error.className="ocm-error";error.textContent=op.error;card.append(error);}
-    if(op.input.kind==="create")this.text(card,op.candidate??"","ocm-inline-file-new");
+    if(op.error){const error=el(card,"div","ocm-op-error");const icon=el(error,"span");setIcon(icon,"alert-triangle");error.append(op.error);}
+    const key=`${p.id}:${op.id}`;
+    if(op.input.kind==="create")this.renderMarkdown(card,op.candidate??"",op.input.path,key,component,"ocm-diff-add");
     else if(op.input.kind==="move"){
-      if(op.baseline?.kind==="attachment"){
-        const meta=card.ownerDocument.createElement("span");meta.className="ocm-inline-file-meta";
-        meta.textContent=`${op.baseline.size.toLocaleString()} B`;card.append(meta);
-      }
-      for(const link of op.links){
-        const label=card.ownerDocument.createElement("div");label.className="ocm-inline-link-path";label.textContent=link.snapshot.path;card.append(label);
-        this.changes(card,link.snapshot.text??"",link.candidate);
-      }
+      if(op.baseline?.kind==="attachment")el(card,"div","ocm-op-meta",`${op.baseline.size.toLocaleString()} B`);
+      if(op.links.length)el(card,"div","ocm-op-meta",`同时更新 ${op.links.length} 篇笔记中的链接`);
+      for(const link of op.links){el(card,"div","ocm-op-sub",link.snapshot.path);this.lines(card,link.snapshot.text??"",link.candidate);}
     }else if(op.input.kind==="trash"){
-      const meta=card.ownerDocument.createElement("span");meta.className="ocm-inline-file-meta";
-      meta.textContent=`${op.baseline?.size.toLocaleString()??0} B`;card.append(meta);
-      if(op.references.length){const links=card.ownerDocument.createElement("div");links.className="ocm-inline-file-meta";links.textContent=op.references.join(" · ");card.append(links);}
-      if(op.baseline?.text){const details=card.ownerDocument.createElement("details");const summary=details.ownerDocument.createElement("summary");summary.textContent="原文";details.append(summary);this.text(details,op.baseline.text,"ocm-inline-file-old");card.append(details);}
+      el(card,"div","ocm-op-meta",`${op.baseline?.size.toLocaleString()??0} B · 移到系统回收站`);
+      if(op.references.length)el(card,"div","ocm-op-meta",`仍被引用：${op.references.join(" · ")}`);
+      if(op.baseline?.text){const details=el(card,"details","ocm-op-details");el(details,"summary",undefined,"查看原文");this.plain(details,op.baseline.text,"ocm-diff-del");}
     }else if(op.input.kind==="edit"){
       for(const h of op.hunks){
         if(h.decision!=="pending")continue;
-        const block=card.ownerDocument.createElement("div");block.className="ocm-inline-file-edit";card.append(block);
-        this.text(block,op.baseline?.text?.slice(h.start,h.end)??"","ocm-inline-file-old");
-        this.text(block,h.replacement,"ocm-inline-file-new");
-        const actions=block.ownerDocument.createElement("div");actions.className="ocm-inline-file-actions";block.append(actions);
-        this.button(actions,"接受",()=>this.decideHunk(p.id,op.id,h.id,"accepted"),!!op.error);
-        this.button(actions,"拒绝",()=>this.decideHunk(p.id,op.id,h.id,"rejected"));
+        const before=op.baseline?.text?.slice(h.start,h.end)??"";
+        const words=wordRanges(before,h.replacement);
+        if(before)this.plain(card,before,"ocm-diff-del",words?.removed);
+        if(h.replacement)this.plain(card,h.replacement,"ocm-diff-add",words?.added);
+        const actions=el(card,"div","ocm-hunk-actions");
+        this.hunkButtons(actions,()=>this.decideHunk(p.id,op.id,h.id,"accepted"),()=>this.decideHunk(p.id,op.id,h.id,"rejected"),!!op.error);
       }
     }
     if(op.input.kind!=="edit"&&pending){
-      const actions=card.ownerDocument.createElement("div");actions.className="ocm-inline-file-actions";card.append(actions);
-      this.button(actions,"接受",()=>this.engine.decide(p.id,op.id,"accepted"),!!op.error);
-      this.button(actions,"拒绝",()=>this.engine.decide(p.id,op.id,"rejected"));
+      const actions=el(card,"div","ocm-hunk-actions");
+      this.hunkButtons(actions,()=>this.engine.decide(p.id,op.id,"accepted"),()=>this.engine.decide(p.id,op.id,"rejected"),!!op.error);
     }else if(!pending){
-      const result=card.ownerDocument.createElement("span");result.className="ocm-inline-file-meta";
-      result.textContent=op.restored?"已恢复":op.input.kind==="edit"?op.hunks.every(h=>h.decision==="rejected")?"已拒绝":"已应用":op.decision==="rejected"?"已拒绝":"已应用";
-      card.append(result);
+      const done=op.restored?"已撤销":op.input.kind==="edit"?op.hunks.every(h=>h.decision==="rejected")?"已拒绝":"已接受":op.decision==="rejected"?"已拒绝":"已接受";
+      el(heading,"span","ocm-op-state",done);
     }
+  }
+  hunkButtons(parent:HTMLElement,accept:()=>Promise<unknown>,reject:()=>Promise<unknown>,blocked=false){
+    const group=el(parent,"span","ocm-hunk-group");
+    this.button(group,{label:"接受",icon:"check",cls:"ocm-accept",disabled:blocked,tooltip:"把这处修改写入笔记",action:accept});
+    this.button(group,{label:"拒绝",icon:"x",cls:"ocm-reject",tooltip:"丢弃这处修改，笔记不变",action:reject});
   }
 
   async open(id?:string,filePath?:string):Promise<boolean>{
-    const p=id?this.engine.get(id):this.proposals().find(p=>p.operations.some(op=>this.engine.pending(op)))??this.proposals()[0];
+    const p=id?this.engine.get(id):this.proposals().find(p=>this.pendingProposal(p))??this.proposals()[0];
     if(!p){new Notice("没有候选修改");return false;}
+    this.dismissed.delete(p.id);
     const available=this.app.vault.getMarkdownFiles().map(f=>f.path);
     const target=filePath&&available.includes(filePath)?filePath:pickReviewHost(p,available,this.preferredContext());
     if(!target){new Notice("请打开一篇笔记以审阅候选修改");return false;}
@@ -210,31 +335,42 @@ export class InlineReview {
     });
     return true;
   }
-  close(){for(const view of this.views)view.dom.closest(".markdown-source-view")?.parentElement?.querySelector(".ocm-inline-toolbar")?.remove();this.views.clear();this.decisionScroll.clear();}
+  close(){for(const view of this.views)view.dom.closest(".markdown-source-view")?.parentElement?.querySelector(".ocm-review-bar")?.remove();this.views.clear();this.decisionScroll.clear();}
 }
 
+const components=new WeakMap<HTMLElement,Component>();
+function mount(dom:HTMLElement){const component=new Component();component.load();components.set(dom,component);return component;}
+function unmount(dom:HTMLElement){components.get(dom)?.unload();components.delete(dom);}
+
 class FileOperationsWidget extends WidgetType {
-  constructor(private owner:InlineReview,private proposal:Proposal){super();}
-  eq(){return false;}
+  constructor(private owner:InlineReview,private proposal:Proposal,private path:string,private signature:string){super();}
+  eq(other:FileOperationsWidget){return other.proposal.id===this.proposal.id&&other.path===this.path&&other.signature===this.signature;}
   toDOM(view:EditorView){
-    const root=view.dom.ownerDocument.createElement("div");root.className="ocm-inline-block ocm-inline-files";root.contentEditable="false";
-    for(const op of this.proposal.operations)if(op.input.kind!=="edit"||!op.input.path.endsWith(".md"))this.owner.renderOperation(root,this.proposal,op);
+    const root=view.dom.ownerDocument.createElement("div");root.className="ocm-inline-files";root.contentEditable="false";
+    const component=mount(root);
+    for(const op of this.proposal.operations)if(op.input.kind!=="edit"||!op.input.path.endsWith(".md"))this.owner.renderOperation(root,this.proposal,op,component);
     return root;
   }
+  destroy(dom:HTMLElement){unmount(dom);}
   ignoreEvent(){return true;}
 }
 
 class IncomingWidget extends WidgetType {
-  private busy:boolean;
-  constructor(private owner:InlineReview,private proposal:string,private operation:string,private hunk:InlineHunk){super();this.busy=owner.busy;}
-  eq(other:IncomingWidget){return this.proposal===other.proposal&&this.operation===other.operation&&this.hunk.id===other.hunk.id&&this.hunk.replacement===other.hunk.replacement&&this.busy===other.busy;}
+  constructor(private owner:InlineReview,private proposal:string,private operation:string,private hunk:InlineHunk,private path:string,private words:WordRanges|null,private index:number,private total:number,private source:boolean){super();}
+  private get key(){return `${this.proposal}:${this.operation}:${this.hunk.id}`;}
+  eq(other:IncomingWidget){
+    return this.key===other.key&&this.hunk.replacement===other.hunk.replacement&&this.path===other.path&&this.index===other.index&&this.total===other.total&&this.source===other.source&&JSON.stringify(this.words)===JSON.stringify(other.words);
+  }
   toDOM(view:EditorView){
-    const root=view.dom.ownerDocument.createElement("div");root.className="ocm-inline-block";root.setAttribute("data-hunk",this.hunk.id);root.contentEditable="false";
-    if(this.hunk.replacement){const text=root.ownerDocument.createElement("div");text.className="ocm-inline-added";text.textContent=this.hunk.replacement.replace(/\n$/,"");root.append(text);}
-    const actions=root.ownerDocument.createElement("div");actions.className="ocm-inline-actions";root.append(actions);
-    this.owner.button(actions,"接受",()=>this.owner.decideHunk(this.proposal,this.operation,this.hunk.id,"accepted"));
-    this.owner.button(actions,"拒绝",()=>this.owner.decideHunk(this.proposal,this.operation,this.hunk.id,"rejected"));
+    const root=view.dom.ownerDocument.createElement("div");root.className="ocm-hunk";root.setAttribute("data-hunk",this.hunk.id);root.contentEditable="false";
+    const component=mount(root);
+    const text=this.hunk.replacement.replace(/\n$/,"");
+    if(text)this.owner.renderMarkdown(root,text,this.path,this.key,component,"ocm-diff-add",this.words?.added);
+    const actions=el(root,"div","ocm-hunk-actions");
+    el(actions,"span","ocm-hunk-index",text?`${this.index+1} / ${this.total}`:`${this.index+1} / ${this.total} · 删除 ${lineCount(view.state.doc.sliceString(this.hunk.from,this.hunk.to))} 行`);
+    this.owner.hunkButtons(actions,()=>this.owner.decideHunk(this.proposal,this.operation,this.hunk.id,"accepted"),()=>this.owner.decideHunk(this.proposal,this.operation,this.hunk.id,"rejected"));
     return root;
   }
+  destroy(dom:HTMLElement){unmount(dom);}
   ignoreEvent(){return true;}
 }
