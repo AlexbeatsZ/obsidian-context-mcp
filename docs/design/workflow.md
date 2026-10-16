@@ -66,8 +66,10 @@ The review bar holds a proposal selector (pending plus the 10 most recent
 completed), a note selector for multi-note edits, +/− line counts, previous/next
 hunk navigation, progress, and actions: 撤销已接受 (= recovery; two-click
 confirm; restores everything the proposal wrote and ends it), 全部拒绝/拒绝其余
-(discard pending, no write), 全部接受/接受其余, and close (hides the proposal until
-reopened; candidates are kept). Conflicts and partial recovery appear in a
+(discard pending, no write) and 全部接受/接受其余. There is deliberately no close
+button: a "hide but keep" action was removed (2026-10-16) because users read it
+as discarding the candidates. A proposal leaves the note only by being decided.
+Conflicts and partial recovery appear in a
 banner with 放弃剩余候选. Tooltips explain every action. New files, non-Markdown edits, attachments, linked moves and trash use
 compact block widgets at the top of an existing Markdown note. The source note
 hosts moves/trash of Markdown files; otherwise the last user note hosts the
@@ -96,8 +98,7 @@ A new proposal opens automatically only when no pending proposal is shown in a
 visible editor. Otherwise it is queued (oldest first) with a Notice and a
 「新提案 N」 button in the review bar; the proposal on screen is pinned as the
 selection so a newer proposal for the same note cannot replace it. Finishing
-the current proposal opens the next queued one; closing (dismissing) it does
-not. A retry of the proposal on screen only refreshes.
+the current proposal opens the next queued one. A retry of the proposal on screen only refreshes.
 
 Visual reference: Smart Composer Apply Edit, specifically full-note flow,
 removed text above added text and controls beside each change. Its model/chat
