@@ -27,8 +27,19 @@ export default class ContextPlugin extends Plugin {
       if(!await sameVaultRoot(root,config.root))return;
       const port=new ObsidianPort(this.app,root);this.engine=new ReviewEngine(port,path.join(this.project,".local"),config.vault);
       await this.engine.load(false);this.context=new ContextTracker(this.app,port,config.vault);
-      this.inline=new InlineReview(this.app,this.engine,()=>this.context.pauseForReview(),()=>this.context.last?.path??null);
+      // UI failures go to a local log; screen capture is not always available for diagnosis.
+      const logged=new Set<string>();
+      const report=(where:string,error:unknown)=>{
+        const message=error instanceof Error?error.stack??error.message:String(error);
+        console.error(`Obsidian Context MCP (${where})`,error);
+        if(logged.has(where+message))return;logged.add(where+message);
+        void fs.appendFile(path.join(this.project,".local","ui-errors.log"),`${new Date().toISOString()} [${where}] ${message}\n`).catch(()=>{});
+      };
+      this.inline=new InlineReview(this.app,this.engine,()=>this.context.pauseForReview(),()=>this.context.last?.path??null,report);
       this.registerEditorExtension(this.inline.extension());
+      this.addCommand({id:"show-review-bar",name:"显示当前笔记的审阅栏",checkCallback:checking=>this.inline?.showActive(checking)??false});
+      this.addCommand({id:"accept-all-active",name:"接受当前提案的全部候选",checkCallback:checking=>this.inline?.decideActive("accepted",checking)??false});
+      this.addCommand({id:"reject-all-active",name:"拒绝当前提案的全部候选",checkCallback:checking=>this.inline?.decideActive("rejected",checking)??false});
       this.engine.onChange=()=>this.inline?.refresh();
       const resumeContext=(event:Event)=>{const target=event.target;if(target instanceof Element&&!target.closest(".ocm-inline-block, .ocm-inline-toolbar"))this.context.resumeForUserEdit();};
       this.registerDomEvent(document,"pointerdown",resumeContext,true);

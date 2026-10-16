@@ -27,7 +27,7 @@ export class InlineReview {
   private cursor=new Map<EditorView,number>();
   private decisionScroll=new Map<EditorView,StateEffect<unknown>>();
   private scheduled=false;
-  constructor(readonly app:App,readonly engine:ReviewEngine,private pauseContext:()=>void,private preferredContext:()=>string|null){}
+  constructor(readonly app:App,readonly engine:ReviewEngine,private pauseContext:()=>void,private preferredContext:()=>string|null,readonly report:(where:string,error:unknown)=>void=()=>{}){}
 
   private proposals(){return [...this.engine.proposals.values()].sort((a,b)=>b.created_at.localeCompare(a.created_at));}
   private pendingProposal(p:Proposal){return p.operations.some(op=>this.engine.pending(op));}
@@ -91,11 +91,18 @@ export class InlineReview {
       bar:HTMLElement|null=null;
       constructor(public view:EditorView){owner.views.add(view);this.render();}
       update(update:{docChanged:boolean;changes:ChangeSet;transactions:readonly {effects:readonly StateEffect<unknown>[]}[]}){
-        const snapshot=owner.decisionScroll.get(this.view);
-        if(snapshot&&update.docChanged)owner.decisionScroll.set(this.view,snapshot.map(update.changes)!);
-        if(update.docChanged||update.transactions.some(tr=>tr.effects.some(e=>e.is(refreshInline))))this.render();
+        try{
+          const snapshot=owner.decisionScroll.get(this.view);
+          if(snapshot&&update.docChanged){const mapped=snapshot.map(update.changes);if(mapped)owner.decisionScroll.set(this.view,mapped);else owner.decisionScroll.delete(this.view);}
+        }catch(error){owner.decisionScroll.delete(this.view);owner.report("scroll snapshot",error);}
+        // Also rebuild a bar that is missing (not yet mounted, or removed by Obsidian).
+        if(update.docChanged||update.transactions.some(tr=>tr.effects.some(e=>e.is(refreshInline)))||!this.bar?.isConnected)this.render();
       }
+      // A throw here would make CodeMirror disable this plugin for the editor's lifetime.
       render(){
+        try{this.draw();}catch(error){this.bar?.remove();this.bar=null;owner.report("review bar",error);}
+      }
+      draw(){
         this.bar?.remove();this.bar=null;
         const host=this.view.dom.closest(".markdown-source-view")?.parentElement;
         const p=owner.proposalFor(this.view.state);if(!p||!host)return;
@@ -108,8 +115,8 @@ export class InlineReview {
     const keepDecisionScroll=EditorState.transactionExtender.of(tr=>{
       if(!tr.docChanged)return null;
       const view=[...owner.views].find(view=>view.state===tr.startState);
-      const snapshot=view&&owner.decisionScroll.get(view);
-      return snapshot?{effects:snapshot.map(tr.changes)!}:null;
+      const mapped=view&&owner.decisionScroll.get(view)?.map(tr.changes);
+      return mapped?{effects:mapped}:null;
     });
     // Like Live Preview: clicking back into the note hides candidate source again.
     const backToRendered=EditorView.domEventHandlers({mousedown:()=>{if(owner.sourceKey){owner.sourceKey=null;owner.refresh();}return false;}});
@@ -212,6 +219,24 @@ export class InlineReview {
     view.dispatch({effects:[EditorView.scrollIntoView(model.hunks[next].from,{y:"center"}),refreshInline.of(null)]});
     return Promise.resolve();
   }
+  // Commands that work without the review bar, for the note in the active editor.
+  private activeNote(){
+    const view=this.app.workspace.getActiveViewOfType(MarkdownView),path=view?.file?.path;
+    const cm=(view?.editor as unknown as {cm?:EditorView}|undefined)?.cm;
+    const shown=cm?this.proposalFor(cm.state):null;
+    const p=shown&&this.pendingProposal(shown)?shown:path?this.proposals().find(x=>x.operations.some(op=>op.input.kind==="edit"&&op.input.path===path&&this.engine.pending(op))):undefined;
+    return p&&path?{proposal:p,path}:null;
+  }
+  decideActive(decision:"accepted"|"rejected",checking:boolean){
+    const active=this.activeNote();if(!active)return false;
+    if(!checking)void this.run(()=>this.engine.decideAll(active.proposal.id,decision));
+    return true;
+  }
+  showActive(checking:boolean){
+    const active=this.activeNote();if(!active)return false;
+    if(!checking)void this.open(active.proposal.id,active.path);
+    return true;
+  }
   showSource(key:string){if(this.sourceKey!==key){this.sourceKey=key;this.refresh();}}
   private dismiss(id:string){
     this.dismissed.add(id);if(this.selected===id){this.selected=null;this.hostPath=null;}
@@ -285,7 +310,7 @@ export class InlineReview {
       return body;
     }
     const rendered=el(body,"div","ocm-diff-rendered markdown-rendered");
-    void MarkdownRenderer.render(this.app,text,rendered,sourcePath,component);
+    MarkdownRenderer.render(this.app,text,rendered,sourcePath,component).catch(error=>this.report("markdown render",error));
     setTooltip(body,"点击查看源码",{delay:600});
     body.addEventListener("click",e=>{if(!(e.target instanceof Element&&e.target.closest("a")))this.showSource(key);});
     return body;
@@ -386,7 +411,8 @@ class FileOperationsWidget extends WidgetType {
   toDOM(view:EditorView){
     const root=view.dom.ownerDocument.createElement("div");root.className="ocm-inline-files";root.contentEditable="false";
     const component=mount(root);
-    for(const op of this.proposal.operations)if(op.input.kind!=="edit"||!op.input.path.endsWith(".md"))this.owner.renderOperation(root,this.proposal,op,component);
+    try{for(const op of this.proposal.operations)if(op.input.kind!=="edit"||!op.input.path.endsWith(".md"))this.owner.renderOperation(root,this.proposal,op,component);}
+    catch(error){this.owner.report("file operations",error);}
     return root;
   }
   destroy(dom:HTMLElement){unmount(dom);}
@@ -402,11 +428,13 @@ class IncomingWidget extends WidgetType {
   toDOM(view:EditorView){
     const root=view.dom.ownerDocument.createElement("div");root.className="ocm-hunk";root.setAttribute("data-hunk",this.hunk.id);root.contentEditable="false";
     const component=mount(root);
-    const text=this.hunk.replacement.replace(/\n$/,"");
-    if(text)this.owner.renderMarkdown(root,text,this.path,this.key,component,"ocm-diff-add",this.words?.added);
-    const actions=el(root,"div","ocm-hunk-actions");
-    el(actions,"span","ocm-hunk-index",text?`${this.index+1} / ${this.total}`:`${this.index+1} / ${this.total} · 删除 ${lineCount(view.state.doc.sliceString(this.hunk.from,this.hunk.to))} 行`);
-    this.owner.hunkButtons(actions,()=>this.owner.decideHunk(this.proposal,this.operation,this.hunk.id,"accepted"),()=>this.owner.decideHunk(this.proposal,this.operation,this.hunk.id,"rejected"));
+    try{
+      const text=this.hunk.replacement.replace(/\n$/,"");
+      if(text)this.owner.renderMarkdown(root,text,this.path,this.key,component,"ocm-diff-add",this.words?.added);
+      const actions=el(root,"div","ocm-hunk-actions");
+      el(actions,"span","ocm-hunk-index",text?`${this.index+1} / ${this.total}`:`${this.index+1} / ${this.total} · 删除 ${lineCount(view.state.doc.sliceString(this.hunk.from,this.hunk.to))} 行`);
+      this.owner.hunkButtons(actions,()=>this.owner.decideHunk(this.proposal,this.operation,this.hunk.id,"accepted"),()=>this.owner.decideHunk(this.proposal,this.operation,this.hunk.id,"rejected"));
+    }catch(error){this.owner.report("candidate block",error);}
     return root;
   }
   destroy(dom:HTMLElement){unmount(dom);}
