@@ -69,6 +69,42 @@ export function materialize(base: string, hunks: Hunk[], includePending=false) {
   for (const h of [...hunks].reverse()) if (h.decision==="accepted" || (includePending && h.decision==="pending")) text=text.slice(0,h.start)+h.replacement+text.slice(h.end);
   return text;
 }
+// Line-aligned ranges conflict when they share a line, or insert at the same point.
+function overlaps(a: {start:number;end:number}, b: {start:number;end:number}) {
+  if (a.start===a.end && b.start===b.end) return a.start===b.start;
+  return a.start<b.end && b.start<a.end;
+}
+function shiftBefore(changes: Hunk[], pos: number) {
+  let delta=0;
+  for (const c of changes) if (c.end<=pos) delta+=c.replacement.length-(c.end-c.start);
+  return delta;
+}
+// Exact rebase of pending hunks over edits that touch none of their lines.
+// Settled hunks become no-ops: their effect is already in the current text.
+export function rebaseHunks(base: string, hunks: Hunk[], current: string): Hunk[] | null {
+  const expected=materialize(base,hunks);
+  const user=expected===current?[]:makeHunks(expected,current);
+  let shift=0;
+  const output: Hunk[]=[];
+  for (const h of hunks) {
+    const start=h.start+shift, end=h.decision==="accepted"?start+h.replacement.length:h.end+shift;
+    if (h.decision==="accepted") shift+=h.replacement.length-(h.end-h.start);
+    if (h.decision==="pending") {
+      if (user.some(u=>overlaps(u,{start,end}))) return null;
+      output.push({...h,start:start+shiftBefore(user,start),end:end+shiftBefore(user,start)});
+    } else {
+      const at=Math.min(current.length,start+shiftBefore(user,start));
+      output.push({...h,start:at,end:at,replacement:""});
+    }
+  }
+  return output;
+}
+// Three-way line merge; null when both sides change the same lines.
+export function merge3(base: string, ours: string, theirs: string): string | null {
+  const a=makeHunks(base,ours), b=makeHunks(base,theirs);
+  if (a.some(x=>b.some(y=>overlaps(x,y)))) return null;
+  return materialize(base,[...a,...b].map(h=>({...h,decision:"accepted" as const})).sort((x,y)=>x.start-y.start||x.end-y.end));
+}
 export interface FileInfo { path: string; size: number; mtime: number; tags?: string[]; headings?: string[]; }
 export interface Snapshot extends FileInfo { revision: string; kind: "text" | "attachment"; text?: string; }
 export interface VaultPort {

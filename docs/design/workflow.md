@@ -10,9 +10,15 @@ rendered text without fabricated source offsets. Revisions use full editor text
 when available, otherwise a fresh Vault read. Text positions are 1-based lines,
 0-based UTF-16 columns; CRLF and trailing newlines are preserved.
 
-Each proposal contains immutable baselines and stable line-diff hunks. Accepted
-hunks write immediately; remaining offsets derive from the immutable baseline
-and accepted hunks only. External changes conflict; no fuzzy rebase occurs.
+Each proposal contains a baseline and stable line-diff hunks. Accepted hunks
+write immediately. When the note changes outside the review (user typing, other
+plugins), pending hunks are rebased exactly: a line diff from the expected text
+to the current text must not touch any pending hunk's lines (insertions at the
+same point also conflict). Then the baseline becomes the current text, settled
+hunks become zero-width no-ops and pending offsets shift. Touching a pending
+line is a conflict; no fuzzy matching occurs. Vault-check conflicts are marked
+`stale` and rechecked on every change, so undoing the touching edit revives the
+candidates. Errors from failed writes or interrupted journals stay permanent.
 Create/trash/move are indivisible. Move and all inbound/outbound link changes
 form one review group. Wiki/Markdown links preserve aliases and fragments;
 fenced/inline code and external URLs are excluded. Vault.rename is intentional:
@@ -23,6 +29,11 @@ a filesystem transaction. Write-ahead recovery records and preimages are kept
 locally. A failed batch stops, retaining truthful partial results. Recovery is a
 local action and checks after-images before reversing completed journal steps.
 Interrupted writes are reconciled conservatively; ambiguous states block.
+Undoing a text write whose after-image was later edited uses a three-way line
+merge (after-image, current, backup); it fails only when the later edit touched
+the accepted lines. `recovery_error` is set only after at least one step was
+reversed (a real half-undone state); a recovery that reverses nothing leaves the
+proposal usable and only reports the error.
 
 Symlinks and hidden/config/system paths are excluded. Files only; no recursive
 folder deletes, cross-vault moves, overwrite moves or cyclic path plans.
@@ -43,9 +54,21 @@ the only offset adjustment; any other document change hides stale decorations
 and the existing engine blocks acceptance. Inline navigation preserves the last
 user context until a real pointer/key interaction in a note resumes tracking.
 
-The note toolbar has a proposal selector, a file selector for multi-note edits,
-Accept all, Reject all and Recovery when applicable. Explanatory guidance is
-omitted. New files, non-Markdown edits, attachments, linked moves and trash use
+Styling follows VS Code's inline diff: faint red/green line tint with a 2px
+bar and stronger intra-line word highlights (`diffWordsWithSpace` with a
+Chinese `Intl.Segmenter`, skipped when the blocks share <30%). Green candidate
+blocks render Markdown like Live Preview (math, callouts); clicking shows the
+source, clicking back into the note restores rendering. Removed lines are real
+note lines and keep Live Preview rendering; lines Obsidian replaces with block
+widgets (callouts, display math) cannot carry the red line tint.
+
+The review bar holds a proposal selector (pending plus the 10 most recent
+completed), a note selector for multi-note edits, +/− line counts, previous/next
+hunk navigation, progress, and actions: 撤销已接受 (= recovery; two-click
+confirm; restores everything the proposal wrote and ends it), 全部拒绝/拒绝其余
+(discard pending, no write), 全部接受/接受其余, and close (hides the proposal until
+reopened; candidates are kept). Conflicts and partial recovery appear in a
+banner with 放弃剩余候选. Tooltips explain every action. New files, non-Markdown edits, attachments, linked moves and trash use
 compact block widgets at the top of an existing Markdown note. The source note
 hosts moves/trash of Markdown files; otherwise the last user note hosts the
 block. Candidate file bytes never enter that host note's document. A linked
