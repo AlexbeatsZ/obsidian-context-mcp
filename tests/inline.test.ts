@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ReviewEngine } from "../src/engine";
-import { inlineHunks, firstPendingOffset, pickReviewHost, changedLinePairs, wordRanges, lineCount } from "../src/inline-model";
+import { inlineHunks, firstPendingOffset, pickReviewHost, changedLinePairs, wordRanges, lineCount, arrivalAction } from "../src/inline-model";
 import { materialize } from "../src/core";
 import { MemoryVault } from "./support";
 import { temporary } from "./temp";
@@ -65,4 +65,10 @@ test("word ranges highlight changed segments and skip unrelated rewrites",()=>{
   assert.ok(r.removed.length&&r.added.length);
   assert.equal(wordRanges("完全不同的一句话","Another sentence entirely"),null);
   assert.equal(lineCount("a\nb\n"),2);assert.equal(lineCount(""),0);
+});
+
+test("new proposals queue behind the one under review instead of taking over",()=>{
+  assert.equal(arrivalAction("b",[]),"open");
+  assert.equal(arrivalAction("b",["a"]),"queue");
+  assert.equal(arrivalAction("a",["a"]),"refresh");
 });

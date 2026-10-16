@@ -2,7 +2,7 @@ import { App, Component, MarkdownRenderer, MarkdownView, Notice, editorInfoField
 import { EditorState, StateEffect, StateField, type ChangeSet, type Extension, type Range } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view";
 import type { ReviewEngine, Proposal, PreparedOperation } from "./engine";
-import { changedLinePairs, firstPendingOffset, inlineHunks, lineCount, pickReviewHost, wordRanges, type InlineHunk, type WordRanges } from "./inline-model";
+import { arrivalAction, changedLinePairs, firstPendingOffset, inlineHunks, lineCount, pickReviewHost, wordRanges, type InlineHunk, type WordRanges } from "./inline-model";
 
 const refreshInline=StateEffect.define<null>();
 interface Model {proposal:Proposal;operation:PreparedOperation;hunks:InlineHunk[];}
@@ -21,6 +21,8 @@ export class InlineReview {
   sourceKey:string|null=null;
   private confirming:string|null=null;
   private dismissed=new Set<string>();
+  // Proposals that arrived while another one was under review, oldest first.
+  private queue:string[]=[];
   private views=new Set<EditorView>();
   private cursor=new Map<EditorView,number>();
   private decisionScroll=new Map<EditorView,StateEffect<unknown>>();
@@ -48,6 +50,33 @@ export class InlineReview {
       for(const d of decisions){if(op.restored)continue;if(d==="pending")pending++;else if(d==="accepted")accepted++;else rejected++;}
     }
     return {pending,accepted,rejected};
+  }
+  private queued(except?:string){
+    this.queue=this.queue.filter(id=>{const q=this.engine.proposals.get(id);return !!q&&this.pendingProposal(q);});
+    return this.queue.filter(id=>id!==except);
+  }
+  // Pending proposals in visible editors, with the note each one is shown in.
+  private shownPending(){
+    const shown=new Map<string,string>();
+    for(const view of this.views){
+      if(!view.dom.isConnected||!view.dom.offsetParent)continue;
+      const p=this.proposalFor(view.state),path=view.state.field(editorInfoField,false)?.file?.path;
+      if(p&&path&&this.pendingProposal(p)&&!shown.has(p.id))shown.set(p.id,path);
+    }
+    return shown;
+  }
+  async announce(id:string){
+    const p=this.engine.proposals.get(id);if(!p)return;
+    const shown=this.shownPending();
+    const action=arrivalAction(id,[...shown.keys()]);
+    if(action==="open"){await this.open(id);return;}
+    if(action==="queue"){
+      // Pin what is on screen so a newer proposal for the same note cannot replace it.
+      if(!this.selected){const [first]=shown;this.selected=first[0];this.hostPath=first[1];}
+      if(!this.queue.includes(id))this.queue.push(id);
+      new Notice(`新的候选提案「${p.title}」已排队，审完当前提案后会自动打开。`,6000);
+    }
+    this.refresh();
   }
   private undoable(p:Proposal){return p.operations.some(op=>op.recovery_ids.length&&!op.restored);}
 
@@ -116,6 +145,12 @@ export class InlineReview {
       this.iconButton(nav,"chevron-up","上一处修改",()=>this.navigate(view,-1));
       el(nav,"span","ocm-review-index",`${current<0?"–":current+1} / ${model.hunks.length}`);
       this.iconButton(nav,"chevron-down","下一处修改",()=>this.navigate(view,1));
+    }
+    const queued=this.queued(p.id);
+    if(queued.length){
+      const titles=queued.map(id=>`「${this.engine.proposals.get(id)!.title}」`).join("、");
+      this.button(row,{label:`新提案 ${queued.length}`,icon:"inbox",cls:"ocm-btn-queue",
+        tooltip:`排队中：${titles}。点击打开最早的一个，当前提案保留，可从下拉框切回。`,action:()=>this.open(queued[0])});
     }
     const {pending:left,accepted,rejected}=this.counts(p);
     el(row,"span","ocm-review-progress",left?`${left} 处待审${accepted?` · 已接受 ${accepted}`:""}${rejected?` · 已拒绝 ${rejected}`:""}`:"已全部处理");
@@ -219,8 +254,11 @@ export class InlineReview {
     this.setBusy(true);this.refresh();
     try{await action();}catch(error){new Notice((error as Error).message,8000);}finally{
       const p=this.selected?this.engine.proposals.get(this.selected):null;
-      if(p&&!this.pendingProposal(p)){this.selected=null;this.hostPath=null;}
+      const finished=!!p&&!this.pendingProposal(p);
+      if(finished){this.selected=null;this.hostPath=null;}
       this.setBusy(false);this.refresh();
+      const next=finished?this.queued()[0]:undefined;
+      if(next)void this.open(next).catch(e=>new Notice(`无法打开审阅：${(e as Error).message}`,8000));
     }
   }
   refresh(){
@@ -312,7 +350,7 @@ export class InlineReview {
   async open(id?:string,filePath?:string):Promise<boolean>{
     const p=id?this.engine.get(id):this.proposals().find(p=>this.pendingProposal(p))??this.proposals()[0];
     if(!p){new Notice("没有候选修改");return false;}
-    this.dismissed.delete(p.id);
+    this.dismissed.delete(p.id);this.queue=this.queue.filter(id=>id!==p.id);
     const available=this.app.vault.getMarkdownFiles().map(f=>f.path);
     const target=filePath&&available.includes(filePath)?filePath:pickReviewHost(p,available,this.preferredContext());
     if(!target){new Notice("请打开一篇笔记以审阅候选修改");return false;}
