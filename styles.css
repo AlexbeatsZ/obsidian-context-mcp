@@ -206,3 +206,12 @@ body {
   .ocm-review-select.dropdown { max-width: 100%; }
   .ocm-review-progress { display: none; }
 }
+.ocm-btn.ocm-btn-queue {
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 11px;
+  background: rgba(var(--color-blue-rgb), .15);
+  color: var(--color-blue);
+  font-size: var(--font-ui-smaller);
+}
+.ocm-btn.ocm-btn-queue:hover { background: rgba(var(--color-blue-rgb), .25); }

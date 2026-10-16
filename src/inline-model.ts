@@ -59,3 +59,9 @@ export function wordRanges(before:string,after:string):WordRanges|null {
   return same>=Math.max(before.length,after.length)*0.3?output:null;
 }
 export function lineCount(text:string){return text?text.replace(/\n$/,"").split("\n").length:0;}
+
+// A new proposal waits while another pending proposal is on screen.
+export function arrivalAction(id:string,shownPending:readonly string[]):"open"|"queue"|"refresh" {
+  if(shownPending.includes(id))return "refresh";
+  return shownPending.length?"queue":"open";
+}

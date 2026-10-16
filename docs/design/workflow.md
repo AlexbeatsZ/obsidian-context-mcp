@@ -83,6 +83,13 @@ the command/ribbon shows the newest pending proposal; the toolbar selector can
 also revisit completed proposals for recovery. When a local decision finishes
 all remaining operations, the inline review block closes.
 
+A new proposal opens automatically only when no pending proposal is shown in a
+visible editor. Otherwise it is queued (oldest first) with a Notice and a
+「新提案 N」 button in the review bar; the proposal on screen is pinned as the
+selection so a newer proposal for the same note cannot replace it. Finishing
+the current proposal opens the next queued one; closing (dismissing) it does
+not. A retry of the proposal on screen only refreshes.
+
 Visual reference: Smart Composer Apply Edit, specifically full-note flow,
 removed text above added text and controls beside each change. Its model/chat
 and write implementations are not adopted.

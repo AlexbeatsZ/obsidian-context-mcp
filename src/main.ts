@@ -51,7 +51,7 @@ export default class ContextPlugin extends Plugin {
         const service=new PluginService(port,this.engine,n=>this.context.get(n));
         const runtime=await startPluginServer(path.join(this.project,".local"),config.vault,root,async(name,args)=>{
           const result=await service.call(name,args);
-          if(name==="obsidian_propose_changes"&&"proposal_id" in result)void this.openReview(String(result.proposal_id)).catch(e=>new Notice(`无法打开审阅：${(e as Error).message}`,8000));
+          if(name==="obsidian_propose_changes"&&"proposal_id" in result)void this.announceProposal(String(result.proposal_id)).catch(e=>new Notice(`无法打开审阅：${(e as Error).message}`,8000));
           return result;
         });
         this.stop=runtime.close;this.connected=true;const status=this.addStatusBarItem();status.setText("笔记 MCP 已连接");status.onclick=()=>this.openReview();
@@ -59,6 +59,7 @@ export default class ContextPlugin extends Plugin {
     }catch(e){new Notice(`笔记 MCP 未连接：${(e as Error).message}`,10000);console.error("Obsidian Context MCP",e);}
   }
   async openReview(id?:string){if(!this.engine){new Notice("请先检查笔记 MCP 的项目配置。");return;}await this.inline?.open(id);}
+  async announceProposal(id:string){await this.inline?.announce(id);}
   onunload(){this.connected=false;this.inline?.close();if(this.stop)void this.stop();}
 }
 class ContextSettings extends PluginSettingTab {
