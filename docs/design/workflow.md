@@ -83,6 +83,15 @@ the command/ribbon shows the newest pending proposal; the toolbar selector can
 also revisit completed proposals for recovery. When a local decision finishes
 all remaining operations, the inline review block closes.
 
+The review bar is a CodeMirror ViewPlugin. CodeMirror permanently disables a
+plugin whose constructor or update throws, while the decoration StateField keeps
+working — the symptom is candidate blocks without a bar that no command can
+bring back. So bar rendering and widget `toDOM` are wrapped; failures go to the
+console and once per message to project `.local/ui-errors.log`. Any update also
+rebuilds a bar that is missing or detached. Commands 显示当前笔记的审阅栏,
+接受当前提案的全部候选 and 拒绝当前提案的全部候选 act on the active note
+without the bar and can be bound to hotkeys.
+
 A new proposal opens automatically only when no pending proposal is shown in a
 visible editor. Otherwise it is queued (oldest first) with a Notice and a
 「新提案 N」 button in the review bar; the proposal on screen is pinned as the
