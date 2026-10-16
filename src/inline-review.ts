@@ -20,7 +20,6 @@ export class InlineReview {
   // Hunk or file card currently showing source instead of rendered Markdown.
   sourceKey:string|null=null;
   private confirming:string|null=null;
-  private dismissed=new Set<string>();
   // Proposals that arrived while another one was under review, oldest first.
   private queue:string[]=[];
   private views=new Set<EditorView>();
@@ -34,7 +33,7 @@ export class InlineReview {
   private proposalFor(state:EditorState):Proposal|null {
     const path=state.field(editorInfoField,false)?.file?.path;if(!path?.endsWith(".md"))return null;
     if(this.hostPath===path&&this.selected){const explicit=this.engine.proposals.get(this.selected);if(explicit)return explicit;}
-    return this.proposals().find(p=>!this.dismissed.has(p.id)&&p.operations.some(op=>op.input.kind==="edit"&&op.input.path===path&&this.engine.pending(op)))??null;
+    return this.proposals().find(p=>p.operations.some(op=>op.input.kind==="edit"&&op.input.path===path&&this.engine.pending(op)))??null;
   }
   model(state:EditorState):Model|null {
     const path=state.field(editorInfoField,false)?.file?.path;
@@ -172,7 +171,6 @@ export class InlineReview {
       this.button(actions,{label:some?"接受其余":"全部接受",icon:"check-check",cls:"mod-cta",disabled:blocked,
         tooltip:blocked?"有候选处于冲突状态，处理冲突后才能批量接受。":"把所有尚未处理的候选写入笔记。",action:()=>this.engine.decideAll(p.id,"accepted")});
     }
-    this.iconButton(actions,"x-circle","关闭审阅（候选保留，可从状态栏「笔记 MCP」重新打开）",async()=>this.dismiss(p.id));
     this.renderBanner(bar,p,path);
   }
   private renderBanner(bar:HTMLElement,p:Proposal,path:string){
@@ -238,10 +236,6 @@ export class InlineReview {
     return true;
   }
   showSource(key:string){if(this.sourceKey!==key){this.sourceKey=key;this.refresh();}}
-  private dismiss(id:string){
-    this.dismissed.add(id);if(this.selected===id){this.selected=null;this.hostPath=null;}
-    this.refresh();
-  }
 
   button(parent:HTMLElement,spec:ButtonSpec){
     const button=el(parent,"button",`ocm-btn${spec.cls?" "+spec.cls:""}`);button.type="button";
@@ -375,7 +369,7 @@ export class InlineReview {
   async open(id?:string,filePath?:string):Promise<boolean>{
     const p=id?this.engine.get(id):this.proposals().find(p=>this.pendingProposal(p))??this.proposals()[0];
     if(!p){new Notice("没有候选修改");return false;}
-    this.dismissed.delete(p.id);this.queue=this.queue.filter(id=>id!==p.id);
+    this.queue=this.queue.filter(id=>id!==p.id);
     const available=this.app.vault.getMarkdownFiles().map(f=>f.path);
     const target=filePath&&available.includes(filePath)?filePath:pickReviewHost(p,available,this.preferredContext());
     if(!target){new Notice("请打开一篇笔记以审阅候选修改");return false;}
