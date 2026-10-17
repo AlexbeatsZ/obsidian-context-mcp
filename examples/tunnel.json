@@ -1,0 +1,6 @@
+{
+  "client": "C:/path/to/tunnel-client.exe",
+  "credential_source": "C:/path/to/obsidian-context-mcp/.local/tunnel.env",
+  "alias": "obsidian-notes",
+  "tunnel_id": "tunnel_0123456789abcdef0123456789abcdef"
+}

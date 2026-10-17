@@ -75,5 +75,5 @@ export default class ContextPlugin extends Plugin {
 }
 class ContextSettings extends PluginSettingTab {
   constructor(app:App,public plugin:ContextPlugin){super(app,plugin);}
-  display(){const el=this.containerEl;el.empty();el.createEl("h2",{text:"Obsidian Context MCP"});new Setting(el).setName("连接状态").setDesc(this.plugin.connected?"STEM 已连接":"未连接");new Setting(el).setName("本机项目目录").addText(t=>t.setValue(this.plugin.project).onChange(value=>{this.app.saveLocalStorage("obsidian-context-mcp.project",value);}));new Setting(el).setName("候选修改").addButton(b=>b.setButtonText("打开审阅").onClick(()=>this.plugin.openReview()));}
+  display(){const el=this.containerEl;el.empty();el.createEl("h2",{text:"Obsidian Context MCP"});new Setting(el).setName("连接状态").setDesc(this.plugin.connected?"笔记仓库已连接":"未连接");new Setting(el).setName("本机项目目录").addText(t=>t.setValue(this.plugin.project).onChange(value=>{this.app.saveLocalStorage("obsidian-context-mcp.project",value);}));new Setting(el).setName("候选修改").addButton(b=>b.setButtonText("打开审阅").onClick(()=>this.plugin.openReview()));}
 }

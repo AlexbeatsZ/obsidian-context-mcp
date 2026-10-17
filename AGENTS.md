@@ -1,57 +1,92 @@
 # Goal
 
-Implement a standalone Obsidian context MCP with local diff approval, complete
-file operations and recoverable writes. Windows and macOS each target their
-local STEM vault; no Manage or mobile deployment.
+Maintain a shareable Obsidian desktop context MCP with local human review,
+file operations and recoverable writes. The public distribution supports any
+configured vault, one checkout per vault and one independent runtime per host.
 
 # Current State
 
-- On 2026-10-11, META-OMEN again reproduced gateway SSE 429 with healthy local stdio and a stopped dedicated Tunnel. Manual start restored it. The user subsequently chose login startup only and manual recovery, so the task now has only one LogonTrigger and the minute check / supervisor logic has been removed. Desktop `Obsidian MCP.lnk` starts the existing Tunnel in the background; actual shortcut launch from stopped restored ready and the real remote tool succeeded. Actual logout/reboot was not tested. See `docs/ACCEPTANCE.md`.
-- TypeScript v0.1.0 plugin and independent stdio MCP bridge implemented; deployed to the local STEM vaults on Windows and macOS.
-- 43 meaningful tests, type checking and production build pass on both hosts. Independent stdio clients discover all six tools.
-- Windows real UI verifies source/rendered selections, browser blur, clear selection, inline review for Markdown edits and file operations, partial accepts, conflict blocking, create, linked move, attachment rename, trash and local restoration. The former full-page review view was removed. Mac UI review remains unverified.
-- Dedicated Tunnel `tunnel_6ab8e356341081918c02253bec374df6` is connected to the Xia ChatGPT app. A real web chat completed context/read, proposal and status calls; runtime status was `ready` at the last check.
-- On 2026-09-28 the Windows runtime was found `stopped` after ChatGPT reported `McpServerError: Session terminated`; local stdio still returned the selected text. `npm run tunnel:start` restored `ready`, and the same ChatGPT chat successfully called `obsidian_get_context`. The underlying exit trigger is not established; see `docs/ACCEPTANCE.md` and `docs/OPERATIONS.md`.
-- On 2026-10-07 another gateway SSE 429 occurred with healthy local stdio and an absent Tunnel process after reboot. Manual start restored the real remote call; the missing recovery mechanism was added on 2026-10-11. The earlier process's exact exit trigger remains unknown. See `docs/ACCEPTANCE.md`.
-- Separate Mac Tunnel `tunnel_6ab9425b741081919d5a7ba1f10a3641` and ChatGPT app are connected. Mac local and web context/search/read/propose/status calls passed; Mac UI candidate approval and recovery still require real acceptance. See `docs/ACCEPTANCE.md`.
-- No model API calls and no remote approval endpoint.
-- META-OMEN Antigravity Desktop 2.19.1 and Claude Windows Store Desktop 2.19675.1.0 are configured with local stdio server `obsidian-context-stem-windows` (2026-10-06). Both exact configurations passed six-tool discovery and live STEM context retrieval. Antigravity generated six tool definitions and runs the MCP as a language-server child; Claude runtime logs confirm connection and announcement of all six tools. Existing MCP entries/settings were preserved. Config paths and narrow rollback are in `docs/OPERATIONS.md`.
-- Git remote is `https://github.com/AlexbeatsZ/obsidian-context-mcp.git` (`origin`, branch `main`). Machine-specific configuration backups and QA evidence stay ignored under `.local/`.
-- On 2026-10-06, the complete Git repository was copied from META-OMEN to META-ROGALLY at the same project path. ROG's existing Node 24.14.1/npm 11.11.0 ran project-local `npm ci` and all 43 tests, type checking and production builds successfully. OMEN's checkout remains available. Host-local `.local` state and Tunnel credentials were not copied; ROG plugin/runtime acceptance was pending at handoff and completed below. See `docs/ROG-HANDOFF.md`.
-- On 2026-10-07, Obsidian 1.14.4 was installed on ROG from the official release with verified publisher signature and installer SHA256. ROG's own STEM plugin/runtime is connected. The acceptance scroll jump was reproduced on the original build, fixed, deployed and verified with real local buttons. All 49 tests, type checking and production builds pass. See `docs/ACCEPTANCE.md`; ROG has no ChatGPT Tunnel configured.
-- 2026-10-16 (OMEN, merged to main): fixed the stuck review bar — any edit after a partial accept used to mark the remaining hunks as a permanent conflict (blocks hidden, Accept all disabled) and a failed Recovery set a sticky `recovery_error`. Now pending hunks rebase over non-overlapping edits, conflicts are rechecked, recovery merges around later edits, and old stuck proposals are migrated on load. Review UI redesigned (VS Code-style diff, rendered candidate blocks, nav, tooltips, clearer action names). 52 tests pass; deployed to Windows STEM; user reloaded Obsidian and confirmed the new UI works and the stuck proposal recovered. Mac not verified. New proposals now queue behind the one under review (merged to main, 53 tests pass, deployed to Windows STEM; user confirmed queueing works after reload).
-- 2026-10-16 later (merged to main; after reload the user confirmed the bar is back, and no `.local/ui-errors.log` existed yet, so the original throw is still unidentified): user reported candidate blocks visible but no review bar and no way to bring it back. Not reproduced in a jsdom harness; the matching mechanism is CodeMirror disabling a ViewPlugin that threw once. Bar/widget rendering is now guarded and self-healing, errors go to `.local/ui-errors.log`, and bar-free commands (show bar / accept all / reject all for the active note) were added. 53 tests pass; deployed to Windows STEM. Screen capture on OMEN returns only the wallpaper, and Obsidian ignores `CloseMainWindow`; read `.local/ui-errors.log` first next time.
-- 2026-10-16: removed the review bar close (dismiss) button at the user's request; hiding a proposal while keeping candidates read as discarding them. Merged to main; user confirmed after reload.
-- Design index: `docs/design/workflow.md`, `docs/design/macos.md`, `docs/design/tunnel-runtime.md`, `docs/API.md`; operations: `docs/OPERATIONS.md`; evidence: `docs/ACCEPTANCE.md`.
+- Version 0.2.0, MIT license. User authorized publishing the existing
+  `AlexbeatsZ/obsidian-context-mcp` repository on 2026-10-18.
+- Six stdio MCP tools expose context/list/search/read/propose/status only.
+  There is no model API call, remote accept/restore or shell tool.
+- `setup --vault` configures arbitrary desktop vaults. Fresh identity defaults
+  to `notes`; existing identities such as `stem` are preserved. Reusing a
+  project with another root/identity is refused to protect recovery state.
+- Full desktop ZIP bundles the bridge, CLI, plugin, runtime scripts and docs;
+  no npm dependency install is needed by desktop ZIP users. Node 22+ is needed.
+- The plugin-only ZIP contains three plugin assets plus license notices. Tunnel client/credentials
+  are obtained independently by each user. The deployment guide is the public
+  entrypoint; older operations/acceptance records are maintainer history.
+- Windows local test suite: 57 tests passed plus a release extraction smoke
+  test. Production bundles and dependency notices generated. Cross-platform
+  CI is configured for Windows/macOS/Linux; inspect current runs before
+  claiming they passed. No fresh 0.2.0 Obsidian UI or ChatGPT web acceptance.
+- Historical Windows local review and real ChatGPT calls passed. Mac local
+  and Web calls passed historically; Mac inline decisions/recovery remain
+  unverified. Source/build/stdio/Tunnel ready are distinct from real UI checks.
+- Existing maintainer runtime and plugin state are retained in ignored `.local`.
+  Windows uses login startup only and manual recovery, with no periodic
+  supervisor. Actual logout/reboot acceptance remains untested.
 
 # Active Work
 
-- META-OMEN uses login startup only; no periodic checks or automatic process restart. The desktop Obsidian MCP shortcut is the user's manual recovery entry. Only actual logout/reboot acceptance remains untested. Read `docs/design/tunnel-runtime.md` before changing lifecycle behavior.
-- Acceptance scroll jump fixed on ROG (2026-10-07): whole-document replacement moved the cursor from line 39 to the start and scrollTop from 882 to 76 in the same leaf. `ObsidianPort.write()` now sends local character changes; `InlineReview` maps a CodeMirror scroll snapshot through writes and refreshes until the decision finishes. Real partial/final accepts, reverse selection, cursor outside viewport, Accept all and Reject all passed. Preserve this behavior; use only `STEM/MCP验收测试` for write tests. OMEN and Mac have not independently verified this fix.
-- All review appears in Markdown note editors, deployed to STEM and packaged. Text candidates appear under their original lines; new files, moves, attachments and trash appear in compact blocks at the top of a note. See `docs/design/workflow.md` before changing presentation or routing.
-- Remote test proposal `6eece0ce-1037-4d2e-bc42-c66623497325` is completed/accepted; `MCP验收测试/ChatGPT远程候选.md` exists. Two subsequent inline UI test proposals were rejected without writing their targets.
-- A web proposal once persisted but returned an error because the old review view was deferred. The view is removed and local navigation/rendering no longer gates the MCP proposal response.
-- QA fixtures and proposals are in `STEM/MCP验收测试`; retain evidence in `.local/qa`. Do not change course notes for write tests.
-- macOS local deployment and ChatGPT candidate/status calls are complete. Pending Mac QA proposal `513470ed-bd0d-4cc4-a7bd-57679de54300` creates `MCP验收测试/Mac端内联审阅验收.md` only after local approval. Remaining Mac acceptance: local inline decisions, conflict and restart recovery. Do not claim these from Windows testing alone.
+- Publish and validate v0.2.0, then record the resulting public release and CI.
+- Each new user's actual ChatGPT workspace permission and local review UI need
+  their own acceptance. Do not use real course notes for write testing.
+- macOS real local review/conflict/recovery and Linux desktop UI remain pending.
+- Multi-vault Windows startup entries currently have a single fixed task and
+  shortcut name. Manual runtime aliases can differ; do not install that entry
+  repeatedly for unrelated project copies.
 
 # Build / Run / Test
 
-- `npm ci`, `npm run check`.
-- `npm run deploy -- C:/Users/Meta/Documents/Obsidian/STEM` (Windows) or `npm run deploy -- /Users/meta/Documents/Obsidian/STEM` (macOS).
-- `npm run mcp`; `npm run tunnel:start`, `tunnel:status`, `tunnel:stop`.
-- Windows startup: `npm run tunnel:autostart:install`, `tunnel:autostart:status`, `tunnel:autostart:uninstall`; `npm run tunnel:shortcut` creates the desktop launcher. Validate script syntax, the single login trigger, a real shortcut launch from stopped and a real remote tool. Current ignored evidence: `.local/qa/windows-tunnel-login-only-20261011.json`.
-- `npm run package` creates a plugin ZIP in `dist`; `npm run rollback` restores this plugin's prior deployment only and keeps local recovery state.
-- Review-engine, transport or link changes require their corresponding tests.
-- Credentials and state belong only in ignored `.local/` / `.env.local`.
+- Source: `npm ci`, `npm run check`, `npm run package`.
+- Release: `node --import tsx --test tests/distribution.smoke.ts` after packaging.
+  This extracts the release into platform temporary `.agents` storage and
+  uses a simulated plugin with a real stdio MCP bridge, without node_modules.
+- Install: `npm run setup -- --vault <absolute-vault-path>`, set the plugin's
+  local project directory, reload Obsidian, `npm run doctor`.
+- Local calls: `npm run tools`, `npm run context` or
+  `node dist/call.cjs <tool> [arguments.json]`.
+- Tunnel: `tunnel:configure`, `tunnel:start`, `tunnel:status`, `tunnel:stop`.
+  Existing runtime profiles must not be overwritten for distribution testing.
+- Windows optional startup: `tunnel:autostart:install/status/uninstall` and
+  `tunnel:shortcut`. Read lifecycle design before changes.
+- Package script uses an explicit allowlist. `.local`, Vault notes, tokens,
+  backups and credentials must never be staged or distributed.
+- Keep manifest/package/lockfile/service versions consistent. Bundle inputs
+  drive third-party license notices. Release includes the full ZIP, plugin ZIP
+  and individual plugin assets. Commit and push completed changes.
+
+# Design Index
+
+- `docs/DEPLOYMENT.zh-CN.md`: new-user setup, acceptance, update and rollback.
+- `docs/DISTRIBUTION.md`: sharing model, product limitations and release steps.
+- `docs/PRIVACY.md`: actual data exposure and local state.
+- `docs/design/workflow.md`: review, link planning, conflicts and recovery.
+- `docs/design/macos.md`: original host-local runtime boundaries.
+- `docs/design/tunnel-runtime.md`: login-only startup and manual recovery.
+- `docs/API.md`: tool schemas and revisions.
+
+Read corresponding design documents before changing those modules; update them
+when semantics change. User-facing UI should show tasks and state concisely.
 
 # Durable Lessons
 
-- Revision checks must use editor buffers when open, and recheck inside each
-  write. Never treat a healthy Tunnel as proof of tool or UI acceptance.
-- Read design docs before altering approval, link planning or recovery.
-- Plugin onload can precede Vault hydration: validate restored proposals and start the listener on workspace.onLayoutReady. Static Node imports are needed in the Electron plugin; raw dynamic Node imports fail.
-- `getLeavesOfType()` can return deferred leaves after Obsidian reload. Load the Markdown leaf before opening an inline review, and do not make a successful MCP proposal response depend on local UI navigation.
-- Code masking must parse blockquote/indented/multiline code, rather than matching plain fence lines only; Markdown reference definitions also contain relocatable URLs.
-- Synced plugin assets are not a working Mac runtime: the Mac project, pairing,
-  proposals and Tunnel profile must stay local to that host. Do not reuse the
-  Windows Tunnel ID. Root comparison uses real paths and folds case only on Windows.
+- Plugin onload can precede Vault hydration. Validate restored proposals and
+  start the listener only on workspace layout readiness.
+- Use editor buffers for revisions, and recheck before each write. Synced assets
+  are not a working host runtime: pairing/proposals/Tunnel state stay local.
+- Deferred Markdown leaves must be loaded before navigation. Proposal persistence
+  and successful MCP responses cannot depend on local navigation/rendering.
+- CodeMirror disables a ViewPlugin that throws. Guard toolbar/widget rendering,
+  log locally and retain bar-independent local review commands.
+- Keep selections/scroll anchored while applying local character edits; a
+  whole-document replacement formerly jumped the cursor and viewport.
+- Link masking must handle quoted/indented/multiline code and reference URLs.
+- A remote probe 429 has accompanied a stopped Tunnel with healthy stdio.
+  Establish local bridge, runtime and actual remote call separately; ready alone
+  is insufficient and the original exit cause may remain unknown.
+- Release CLI must be bundled too. A plugin ZIP or bridge alone does not provide
+  dependency-free diagnostic commands to a new user.

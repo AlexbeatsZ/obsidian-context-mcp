@@ -3,16 +3,24 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 const project=path.resolve(import.meta.dirname,'..');
 const local=path.join(project,'.local');const action=process.argv[2];
-const config=JSON.parse(await fs.readFile(path.join(local,'tunnel.json'),'utf8'));
 if(!['start','status','stop'].includes(action))throw new Error('Use start, status or stop');
+let config;
+try{config=JSON.parse(await fs.readFile(path.join(local,'tunnel.json'),'utf8'));}catch(e){if(e.code==='ENOENT')throw new Error('Run npm run tunnel:configure first. See docs/DEPLOYMENT.zh-CN.md.');throw e;}
+if(!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(config.alias??''))throw new Error('Invalid Tunnel alias.');
 const readEnv=text=>Object.fromEntries(text.split(/\r?\n/).filter(l=>/^\s*[\w]+\s*=/.test(l)).map(l=>{const i=l.indexOf('=');let v=l.slice(i+1).trim();if((v.startsWith('"')&&v.endsWith('"'))||(v.startsWith("'")&&v.endsWith("'")))v=v.slice(1,-1);return [l.slice(0,i).trim(),v];}));
-const source=readEnv(await fs.readFile(config.credential_source,'utf8'));
-const env={...process.env,CONTROL_PLANE_API_KEY:source.OPENAI_API_KEY};delete env.OPENAI_API_KEY;
-if(source.TUNNEL_HTTP_PROXY)env.HTTPS_PROXY=source.TUNNEL_HTTP_PROXY;
+const env={...process.env};
+for(const key of Object.keys(env))if(/^(CONTROL_PLANE_API_KEY|OPENAI_API_KEY|OPENAI_ADMIN_KEY)$/i.test(key))delete env[key];
 const common=['--profile-dir',path.join(local,'tunnel').replaceAll('\\','/')];
 let args;
 if(action==='start'){
   if(!config.tunnel_id)throw new Error('Configure the dedicated tunnel_id after reviewing the new connection.');
+  await fs.access(path.join(project,'dist','mcp.cjs'));
+  await fs.access(path.join(local,'config.json'));
+  const source=readEnv((await fs.readFile(config.credential_source,'utf8')).replace(/^\uFEFF/,''));
+  const key=source.CONTROL_PLANE_API_KEY??source.OPENAI_API_KEY;
+  if(!key||/REPLACE|YOUR_|\.\.\./i.test(key))throw new Error('Set a runtime CONTROL_PLANE_API_KEY in the configured local env file before starting.');
+  env.CONTROL_PLANE_API_KEY=key;
+  if(source.TUNNEL_HTTP_PROXY)env.HTTPS_PROXY=source.TUNNEL_HTTP_PROXY;
   const executable=process.execPath.replaceAll('\\','/');
   const launcher=path.join(project,'scripts','start-mcp.mjs').replaceAll('\\','/');
   if(executable.includes('"')||launcher.includes('"'))throw new Error('Invalid MCP launcher path');

@@ -23,10 +23,10 @@ export type Edit = z.infer<typeof editSchema>;
 export type Operation = z.infer<typeof operationSchema>;
 export type ProposalInput = z.infer<typeof schemas.obsidian_propose_changes>;
 export const descriptions: Record<ToolName, string> = {
-  obsidian_get_context: "Get the last active STEM note, editor selection and cursor, nearby text, open/recent/linked notes and revision. Use first for 'this', 'here' or selected-text requests. Snapshot survives switching to the browser. Reading-mode selections have no source offsets.",
-  obsidian_list_files: "List paginated visible STEM vault files and attachment metadata, without reading their bodies. Paths are vault-relative.",
-  obsidian_search: "Find STEM files from a description using whitespace-separated AND keywords in paths, headings, tags and text. Returns ranked bounded snippets and 1-based line numbers. Follow with read_file.",
-  obsidian_read_file: "Read a range of a STEM text file with a full-content revision and total lines. Open editor buffers take precedence. Binary attachments return metadata only. Lines are 1-based; columns are 0-based UTF-16.",
+  obsidian_get_context: "Get the last active Obsidian note, editor selection and cursor, nearby text, open/recent/linked notes and revision. Use first for 'this', 'here' or selected-text requests. Snapshot survives switching to the browser. Reading-mode selections have no source offsets.",
+  obsidian_list_files: "List paginated visible configured vault files and attachment metadata, without reading their bodies. Paths are vault-relative.",
+  obsidian_search: "Find vault files from a description using whitespace-separated AND keywords in paths, headings, tags and text. Returns ranked bounded snippets and 1-based line numbers. Follow with read_file.",
+  obsidian_read_file: "Read a range of a vault text file with a full-content revision and total lines. Open editor buffers take precedence. Binary attachments return metadata only. Lines are 1-based; columns are 0-based UTF-16.",
   obsidian_propose_changes: "Submit a candidate edit/create/move/trash group for LOCAL HUMAN REVIEW in Obsidian. Does not change vault files. For edits supply read revision and exact expected_text with from/to positions; preserve formulas unless asked to alter them. Moves include linked-note changes. Submit request_id once, reuse it only for identical retries. Returns immediately; never wait/poll continuously for approval. No remote apply tool exists.",
   obsidian_get_change_status: "Read per-operation and per-hunk review results, applied steps, revisions and conflicts. Query after the user reviews or asks about the result; do not continuously poll."
 };

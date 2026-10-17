@@ -1,6 +1,6 @@
 {
   "name": "obsidian-context-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -17,10 +17,15 @@
     "tunnel:shortcut": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -File scripts/tunnel-startup.ps1 -Mode Shortcut",
     "tunnel:autostart:install": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -File scripts/tunnel-startup.ps1 -Mode Install",
     "tunnel:autostart:status": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -File scripts/tunnel-startup.ps1 -Mode Status",
-    "tunnel:autostart:uninstall": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -File scripts/tunnel-startup.ps1 -Mode Uninstall"
+    "tunnel:autostart:uninstall": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -File scripts/tunnel-startup.ps1 -Mode Uninstall",
+    "setup": "node scripts/deploy.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "tools": "node dist/call.cjs list",
+    "context": "node dist/call.cjs obsidian_get_context",
+    "tunnel:configure": "node scripts/configure-tunnel.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "@lezer/markdown": "^1.6.4",
@@ -37,5 +42,6 @@
     "obsidian": "1.13.1",
     "tsx": "^4.20.0",
     "typescript": "^5.8.3"
-  }
+  },
+  "license": "MIT"
 }
