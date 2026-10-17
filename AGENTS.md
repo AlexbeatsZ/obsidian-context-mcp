@@ -90,3 +90,5 @@ when semantics change. User-facing UI should show tasks and state concisely.
   is insufficient and the original exit cause may remain unknown.
 - Release CLI must be bundled too. A plugin ZIP or bridge alone does not provide
   dependency-free diagnostic commands to a new user.
+- Windows TEMP can be an 8.3 alias on hosted runners. Verify canonical directory
+  identity rather than comparing returned path strings in launcher tests.
