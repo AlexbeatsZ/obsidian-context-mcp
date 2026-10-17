@@ -53,4 +53,6 @@ CI 仅使用项目依赖和临时 Vault，不需要真实笔记、OpenAI key 或
 
 旧版维护者环境曾通过 Windows 本地审阅和 ChatGPT 的真实读取／候选／状态调用；Mac 曾通过本地和 Web 工具调用，但本地按钮审阅与恢复没有同等验收记录。原有具体记录见 [ACCEPTANCE](https://github.com/AlexbeatsZ/obsidian-context-mcp/blob/main/docs/ACCEPTANCE.md)。这些属于旧版本历史证据。
 
-0.2.0 的本轮测试结果由 Release 说明记录。自动化测试涵盖首次部署、旧身份保留、错误 Vault 拒绝、回滚保留无关配置、配置不覆盖、占位凭据阻断及脱离 node_modules 的完整部署包握手。真实用户的账号权限、网络、桌面 UI 和点击接受需在其自己的设备上验证。
+0.2.0 已于 2026-10-18 [公开发布](https://github.com/AlexbeatsZ/obsidian-context-mcp/releases/tag/v0.2.0)。发布 commit `e89d0e7` 的 [Windows、macOS、Ubuntu CI](https://github.com/AlexbeatsZ/obsidian-context-mcp/actions/runs/39062809946) 全部通过：57 项测试、类型检查、构建、打包及独立解压包 smoke test。本机 doctor 也已连接现有真实插件。本次未重做真实 ChatGPT Web 或本地 UI 点击审阅验收。
+
+自动化测试涵盖首次部署、旧身份保留、错误 Vault 拒绝、回滚保留无关配置、配置不覆盖、占位凭据阻断及脱离 node_modules 的完整部署包握手。真实用户的账号权限、网络、桌面 UI 和点击接受需在其自己的设备上验证。

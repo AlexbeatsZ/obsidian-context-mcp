@@ -6,8 +6,8 @@ configured vault, one checkout per vault and one independent runtime per host.
 
 # Current State
 
-- Version 0.2.0, MIT license. User authorized publishing the existing
-  `AlexbeatsZ/obsidian-context-mcp` repository on 2026-10-18.
+- Version 0.2.0, MIT license. The existing `AlexbeatsZ/obsidian-context-mcp`
+  repository is PUBLIC and v0.2.0 is published (2026-10-18), as authorized.
 - Six stdio MCP tools expose context/list/search/read/propose/status only.
   There is no model API call, remote accept/restore or shell tool.
 - `setup --vault` configures arbitrary desktop vaults. Fresh identity defaults
@@ -19,9 +19,10 @@ configured vault, one checkout per vault and one independent runtime per host.
   are obtained independently by each user. The deployment guide is the public
   entrypoint; older operations/acceptance records are maintainer history.
 - Windows local test suite: 57 tests passed plus a release extraction smoke
-  test. Production bundles and dependency notices generated. Cross-platform
-  CI is configured for Windows/macOS/Linux; inspect current runs before
-  claiming they passed. No fresh 0.2.0 Obsidian UI or ChatGPT web acceptance.
+  test. Windows/macOS/Linux CI all passed on release commit e89d0e7:
+  https://github.com/AlexbeatsZ/obsidian-context-mcp/actions/runs/39062809946 .
+  Local doctor reached the existing real plugin; no fresh 0.2.0 Obsidian UI
+  or ChatGPT web acceptance was performed.
 - Historical Windows local review and real ChatGPT calls passed. Mac local
   and Web calls passed historically; Mac inline decisions/recovery remain
   unverified. Source/build/stdio/Tunnel ready are distinct from real UI checks.
@@ -31,7 +32,8 @@ configured vault, one checkout per vault and one independent runtime per host.
 
 # Active Work
 
-- Publish and validate v0.2.0, then record the resulting public release and CI.
+- Completed public v0.2.0 distribution with desktop/plugin ZIPs and individual
+  plugin assets: https://github.com/AlexbeatsZ/obsidian-context-mcp/releases/tag/v0.2.0 .
 - Each new user's actual ChatGPT workspace permission and local review UI need
   their own acceptance. Do not use real course notes for write testing.
 - macOS real local review/conflict/recovery and Linux desktop UI remain pending.
