@@ -14,8 +14,7 @@ const common=['--profile-dir',path.join(local,'tunnel').replaceAll('\\','/')];
 let args;
 if(action==='start'){
   if(!config.tunnel_id)throw new Error('Configure the dedicated tunnel_id after reviewing the new connection.');
-  await fs.access(path.join(project,'dist','mcp.cjs'));
-  await fs.access(path.join(local,'config.json'));
+  await fs.access(path.join(project,'scripts','start-mcp.mjs'));
   const source=readEnv((await fs.readFile(config.credential_source,'utf8')).replace(/^\uFEFF/,''));
   const key=source.CONTROL_PLANE_API_KEY??source.OPENAI_API_KEY;
   if(!key||/REPLACE|YOUR_|\.\.\./i.test(key))throw new Error('Set a runtime CONTROL_PLANE_API_KEY in the configured local env file before starting.');

@@ -9,7 +9,7 @@ async function fixture(t:any){
   const root=await temporary(t),project=path.join(root,'project with spaces'),vault=path.join(root,'My notes');
   await fs.mkdir(path.join(project,'scripts'),{recursive:true});await fs.mkdir(path.join(project,'dist'));
   await fs.mkdir(path.join(vault,'.obsidian'),{recursive:true});
-  for(const name of ['deploy.mjs','rollback.mjs','configure-tunnel.mjs','tunnel.mjs'])await fs.copyFile(path.join(import.meta.dirname,'..','scripts',name),path.join(project,'scripts',name));
+  for(const name of ['deploy.mjs','rollback.mjs','configure-tunnel.mjs','tunnel.mjs','start-mcp.mjs'])await fs.copyFile(path.join(import.meta.dirname,'..','scripts',name),path.join(project,'scripts',name));
   for(const name of ['main.js','manifest.json','styles.css','dist/mcp.cjs'])await fs.writeFile(path.join(project,name),'fixture-v1');
   const run=(script:string,...args:string[])=>spawnSync(process.execPath,[path.join(project,'scripts',script),...args],{encoding:'utf8',cwd:project,windowsHide:true});
   return {root,project,vault,run};

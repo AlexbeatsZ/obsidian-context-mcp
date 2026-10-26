@@ -6,6 +6,14 @@ configured vault, one checkout per vault and one independent runtime per host.
 
 # Current State
 
+- Windows local `.local/mcp-launcher.json` now explicitly delegates the shared
+  `scripts/start-mcp.mjs` to WebObsidian native stdio via existing Node/tsx and
+  the desktop operations endpoint file. Without an override the old bridge is
+  unchanged. Antigravity/Claude Desktop entries use the same launcher; other
+  settings and Mac remain untouched. Existing Tunnel identity/login/shortcut
+  retained; ready and native six-tool/read/context checks passed. Client UI and
+  remote ChatGPT calls are not accepted. See docs/design/tunnel-runtime.md.
+
 - Version 0.2.0, MIT license. The existing `AlexbeatsZ/obsidian-context-mcp`
   repository is PUBLIC and v0.2.0 is published (2026-10-18), as authorized.
 - Six stdio MCP tools expose context/list/search/read/propose/status only.
