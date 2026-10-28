@@ -13,6 +13,10 @@ $projectPath = Split-Path -Parent $PSScriptRoot
 $tunnelScript = Join-Path $PSScriptRoot 'tunnel.mjs'
 
 if ($Mode -eq 'Run') {
+    if (-not $NodePath) {
+        $cmd = Get-Command node.exe -ErrorAction SilentlyContinue
+        $NodePath = if ($cmd) { $cmd.Source } else { Join-Path $env:USERPROFILE 'scoop\apps\nodejs-lts\current\node.exe' }
+    }
     if (-not $NodePath -or -not (Test-Path -LiteralPath $NodePath -PathType Leaf)) {
         throw 'The configured project Node executable is unavailable.'
     }

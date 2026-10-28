@@ -6,6 +6,7 @@ configured vault, one checkout per vault and one independent runtime per host.
 
 # Current State
 
+- 2026-10-28 manual recovery script added: `scripts/manual-start-mcp.ps1` supports `Status`/`Start`/`Restart`/`EnsureTask`/`Tunnel`; `scripts/tunnel.mjs` adds `restart`, and `scripts/tunnel-startup.ps1` auto-detects `node.exe` in `-Mode Run` when `-NodePath` is omitted.
 - Windows local `.local/mcp-launcher.json` now explicitly delegates the shared
   `scripts/start-mcp.mjs` to WebObsidian native stdio via existing Node/tsx and
   the desktop operations endpoint file. Without an override the old bridge is

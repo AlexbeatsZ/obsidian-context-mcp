@@ -12,6 +12,8 @@
     "package": "node scripts/package.mjs",
     "rollback": "node scripts/rollback.mjs",
     "tunnel:start": "node scripts/tunnel.mjs start",
+    "tunnel:manual": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/manual-start-mcp.ps1",
+    "tunnel:restart": "node scripts/tunnel.mjs restart",
     "tunnel:status": "node scripts/tunnel.mjs status",
     "tunnel:stop": "node scripts/tunnel.mjs stop",
     "tunnel:shortcut": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -File scripts/tunnel-startup.ps1 -Mode Shortcut",

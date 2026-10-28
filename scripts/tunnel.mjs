@@ -3,7 +3,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 const project=path.resolve(import.meta.dirname,'..');
 const local=path.join(project,'.local');const action=process.argv[2];
-if(!['start','status','stop'].includes(action))throw new Error('Use start, status or stop');
+if(!['start','status','stop','restart'].includes(action))throw new Error('Use start, restart, status or stop');
 let config;
 try{config=JSON.parse(await fs.readFile(path.join(local,'tunnel.json'),'utf8'));}catch(e){if(e.code==='ENOENT')throw new Error('Run npm run tunnel:configure first. See docs/DEPLOYMENT.zh-CN.md.');throw e;}
 if(!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(config.alias??''))throw new Error('Invalid Tunnel alias.');
@@ -11,8 +11,12 @@ const readEnv=text=>Object.fromEntries(text.split(/\r?\n/).filter(l=>/^\s*[\w]+\
 const env={...process.env};
 for(const key of Object.keys(env))if(/^(CONTROL_PLANE_API_KEY|OPENAI_API_KEY|OPENAI_ADMIN_KEY)$/i.test(key))delete env[key];
 const common=['--profile-dir',path.join(local,'tunnel').replaceAll('\\','/')];
-let args;
-if(action==='start'){
+const runClient=args=>new Promise(resolve=>{
+  const child=spawn(config.client,args,{cwd:project,env,windowsHide:true,stdio:'inherit'});
+  child.on('error',e=>{console.error(e.message);resolve(1);});
+  child.on('exit',code=>resolve(code??1));
+});
+if(action==='start'||action==='restart'){
   if(!config.tunnel_id)throw new Error('Configure the dedicated tunnel_id after reviewing the new connection.');
   await fs.access(path.join(project,'scripts','start-mcp.mjs'));
   const source=readEnv((await fs.readFile(config.credential_source,'utf8')).replace(/^\uFEFF/,''));
@@ -24,7 +28,11 @@ if(action==='start'){
   const launcher=path.join(project,'scripts','start-mcp.mjs').replaceAll('\\','/');
   if(executable.includes('"')||launcher.includes('"'))throw new Error('Invalid MCP launcher path');
   const command=`"${executable}" "${launcher}"`;
-  args=['runtimes','connect','--alias',config.alias,'--profile',config.alias,'--tunnel-id',config.tunnel_id,'--mcp-command',command,...common];
-}else args=['runtimes',action==='status'?'status':'disconnect',config.alias];
-const child=spawn(config.client,args,{cwd:project,env,windowsHide:true,stdio:'inherit'});
-child.on('error',e=>{console.error(e.message);process.exitCode=1;});child.on('exit',code=>{process.exitCode=code??1;});
+  if(action==='restart'){
+    const stopped=await runClient(['runtimes','disconnect',config.alias]);
+    if(stopped!==0)throw new Error('Tunnel stop failed; refusing to start another runtime.');
+  }
+  process.exitCode=await runClient(['runtimes','connect','--alias',config.alias,'--profile',config.alias,'--tunnel-id',config.tunnel_id,'--mcp-command',command,...common]);
+}else{
+  process.exitCode=await runClient(['runtimes',action==='status'?'status':'disconnect',config.alias]);
+}
