@@ -25,6 +25,8 @@ test('manual recovery checks the native endpoint and delegates without changing 
   assert.equal(unavailable.code, 1, unavailable.output);
   assert.match(unavailable.output, /Tunnel was not restarted/);
   await assert.rejects(fs.access(calls));
+  assert.equal((await run('Connect')).code, 1);
+  await assert.rejects(fs.access(calls));
   assert.equal((await run('Stop')).code, 0);
   assert.deepEqual(JSON.parse(await fs.readFile(calls, 'utf8')), ['stop']);
   const server = http.createServer((request, response) => {
@@ -34,7 +36,7 @@ test('manual recovery checks the native endpoint and delegates without changing 
   try {
     const address = server.address() as import('node:net').AddressInfo;
     await fs.writeFile(endpoint, JSON.stringify({ protocol: 1, url: `http://127.0.0.1:${address.port}` }));
-    for (const action of ['Start', 'Status', 'Restart']) {
+    for (const action of ['Connect', 'Start', 'Status', 'Restart']) {
       const result = await run(action); assert.equal(result.code, 0, result.output);
       assert.deepEqual(JSON.parse(await fs.readFile(calls, 'utf8')), [action.toLowerCase()]);
     }

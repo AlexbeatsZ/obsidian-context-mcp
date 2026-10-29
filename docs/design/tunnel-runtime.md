@@ -40,6 +40,13 @@ WebObsidian 可将 command 设为已有 Node，args 为其绝对 tsx CLI 和
 
 ## 验证与边界
 
+2026-10-28 单一手动连接：`manual-start-mcp.ps1 -Action Connect` 先通过
+原有本地endpoint健康检查，再委托`tunnel.mjs connect`。只在调用时读取一次
+客户端JSON状态：ready/healthy/process_running且非stale则保持连接；未运行则
+复用start；运行但不健康/stale则复用restart。停止失败、状态超时或无法解析时
+明确失败，不启动重复进程。不定时检查、不循环重试、不注册额外任务。原有
+Start/Restart/Stop/Status仅保留为脚本兼容入口，程序内只展示一个“连接”。
+
 2026-10-28 手动恢复入口：`scripts/manual-start-mcp.ps1 -Action Start`，
 或 `npm run tunnel:manual -- -Action Status`。支持 Start/Restart/Stop/Status；
 默认 Start 不主动中断已运行的 Tunnel，只有显式 Restart 才先断开再连接，

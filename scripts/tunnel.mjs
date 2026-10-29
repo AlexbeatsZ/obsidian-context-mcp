@@ -1,9 +1,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
 const project=path.resolve(import.meta.dirname,'..');
-const local=path.join(project,'.local');const action=process.argv[2];
-if(!['start','status','stop','restart'].includes(action))throw new Error('Use start, restart, status or stop');
+const local=path.join(project,'.local');let action=process.argv[2];
+if(!['connect','start','status','stop','restart'].includes(action))throw new Error('Use connect, start, restart, status or stop');
 let config;
 try{config=JSON.parse(await fs.readFile(path.join(local,'tunnel.json'),'utf8'));}catch(e){if(e.code==='ENOENT')throw new Error('Run npm run tunnel:configure first. See docs/DEPLOYMENT.zh-CN.md.');throw e;}
 if(!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(config.alias??''))throw new Error('Invalid Tunnel alias.');
@@ -16,6 +16,23 @@ const runClient=args=>new Promise(resolve=>{
   child.on('error',e=>{console.error(e.message);resolve(1);});
   child.on('exit',code=>resolve(code??1));
 });
+if(action==='connect'){
+  const state=await new Promise((resolve,reject)=>{
+    execFile(config.client,['runtimes','status',config.alias,'--json'],{cwd:project,env,windowsHide:true,timeout:10_000,maxBuffer:32*1024,encoding:'utf8'},(error,stdout)=>{
+      if(error?.killed){reject(new Error('Tunnel status timed out; no connection was changed.'));return;}
+      try{
+        const result=JSON.parse(stdout);
+        if(typeof result.ready!=='boolean'||typeof result.process_running!=='boolean')throw new Error('Invalid status');
+        resolve(result);
+      }catch{reject(new Error('Could not read Tunnel status; no connection was changed.'));}
+    });
+  });
+  if(state.ready&&state.healthy===true&&state.process_running&&!state.stale){
+    console.log('[MCP] Already connected.');
+    process.exit(0);
+  }
+  action=state.process_running?'restart':'start';
+}
 if(action==='start'||action==='restart'){
   if(!config.tunnel_id)throw new Error('Configure the dedicated tunnel_id after reviewing the new connection.');
   await fs.access(path.join(project,'scripts','start-mcp.mjs'));

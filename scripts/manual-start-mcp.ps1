@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Start', 'Restart', 'Stop', 'Status')]
+    [ValidateSet('Connect', 'Start', 'Restart', 'Stop', 'Status')]
     [string]$Action = 'Start',
     [string]$NodeExe,
     [string]$EndpointFile,
@@ -35,7 +35,7 @@ function Test-Endpoint {
 }
 $ready = $true
 if ($Action -ne 'Stop') { $ready = Test-Endpoint }
-if (-not $ready -and $LaunchApp -and $Action -in @('Start', 'Restart')) {
+if (-not $ready -and $LaunchApp -and $Action -in @('Connect', 'Start', 'Restart')) {
     $app = Join-Path $env:LOCALAPPDATA 'Programs\WebObsidian\WebObsidian.exe'
     if (-not (Test-Path -LiteralPath $app -PathType Leaf)) { throw "Application not found: $app" }
     Start-Process -FilePath $app -WindowStyle Hidden | Out-Null
