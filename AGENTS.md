@@ -5,6 +5,7 @@ file operations and recoverable writes. The public distribution supports any
 configured vault, one checkout per vault and one independent runtime per host.
 
 # Current State
+- 2026-10-28 local artifact closeout: only0.2.2ZIPs remain in active dist; known0.1.0/0.2.0/0.2.1ZIPs moved reversibly to Temp/.agents/.trash/webobsidian-builds-20261028-9687ece5/companion-dist with source/target manifest, under updated user cleanup instructions. No permanent deletion, credentials/profile/runtime change.
 - 2026-10-28 v0.2.2 published from215b86f: one JSON status read per manual Connect; healthy unchanged, stopped starts, unhealthy/stale running reuses restart; malformed/timeout status or stop failure refuses mutation/duplicate start. No polling/background retry.65/65tests/build/package/extractedstdio smoke pass. BothZIPs/pluginassets/notices and exactremote tag verified; branch/tag Check runs40803460576/40803532694 succeeded. WebObsidian031 native single-button package published; no installed application, realTunnel/credentials/login task change or remoteChatGPT acceptance.
 - 2026-10-28 v0.2.1 published from7cfe2c3 with bothZIPs/pluginassets/notices; all3CIjobs succeeded (run40797479213). Local60tests plus independent extracted stdio smoke passed. Current host Tunnel ready/native application endpoint offline; no live restart or remote acceptance. Superseded localZIP cleanup was policy-rejected/notretried; dist olderZIPs retained. No source/build/publication task remains.
 
