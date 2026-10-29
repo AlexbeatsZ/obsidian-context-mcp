@@ -5,6 +5,7 @@ file operations and recoverable writes. The public distribution supports any
 configured vault, one checkout per vault and one independent runtime per host.
 
 # Current State
+- 2026-10-28 v0.2.1 published from7cfe2c3 with bothZIPs/pluginassets/notices; all3CIjobs succeeded (run40797479213). Local60tests plus independent extracted stdio smoke passed. Current host Tunnel ready/native application endpoint offline; no live restart or remote acceptance. Superseded localZIP cleanup was policy-rejected/notretried; dist olderZIPs retained. No source/build/publication task remains.
 
 - 2026-10-28 recovery review: manual-start-mcp.ps1 supports Start(default)/Restart/Stop/Status only; verifies configured loopback native endpoint before start/restart, never disconnects when the application is unavailable. Standard stdio PS wrapper delegates shared start-mcp.mjs. Both PS scripts now included in distribution allowlist. 60/60 Windows tests and independent extracted stdio distribution smoke pass; version0.2.1 builds/packages prepared, publication pending. Live native application was unavailable while existing Tunnel remained ready; no restart, live UI/remote call or original intermittent-failure root-cause acceptance.
 - Windows local `.local/mcp-launcher.json` now explicitly delegates the shared
