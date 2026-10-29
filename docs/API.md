@@ -1,6 +1,6 @@
 # MCP API v1
 
-Server: `obsidian-context-mcp`, version 0.2.0, transport stdio. The v1 tool shapes remain compatible.
+Server: `obsidian-context-mcp`, version 0.2.1, transport stdio. The v1 tool shapes remain compatible.
 All paths are vault-relative. Lines start at 1; columns are UTF-16, starting at 0.
 All tools accept JSON objects. Results are both structuredContent and JSON text.
 Errors have `isError: true` and `{error:{code,message}}`.

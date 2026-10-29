@@ -1,6 +1,6 @@
 # 从零部署：让 ChatGPT Web 使用你的 Obsidian
 
-适用本项目 0.2.0，文档核对日期：2026-10-18。主线为 **Windows / macOS 桌面 Obsidian + 本机 MCP + 每人自己的 OpenAI Secure MCP Tunnel**。命令里的路径和 ID 都要替换成你自己的值。
+适用本项目 0.2.1，文档核对日期：2026-10-28。主线为 **Windows / macOS 桌面 Obsidian + 本机 MCP + 每人自己的 OpenAI Secure MCP Tunnel**。命令里的路径和 ID 都要替换成你自己的值。
 
 ## 1. 先理解需要装在哪
 
@@ -37,7 +37,7 @@ ChatGPT Web
 
 ### A. 下载现成桌面包（适合使用者）
 
-从[Releases](https://github.com/AlexbeatsZ/obsidian-context-mcp/releases/latest)下载 `obsidian-context-mcp-desktop-0.2.0.zip` 或更新版本。不要选 GitHub 自动生成的 Source code ZIP，也不要只下载三文件插件 ZIP。
+从[Releases](https://github.com/AlexbeatsZ/obsidian-context-mcp/releases/latest)下载 `obsidian-context-mcp-desktop-0.2.1.zip` 或更新版本。不要选 GitHub 自动生成的 Source code ZIP，也不要只下载三文件插件 ZIP。
 
 解压到固定目录，例如：
 

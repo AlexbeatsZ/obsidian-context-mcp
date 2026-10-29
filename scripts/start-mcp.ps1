@@ -8,7 +8,7 @@ foreach ($taskEnvName in [Environment]::GetEnvironmentVariables('Process').Keys)
 [Environment]::SetEnvironmentVariable('OBSIDIAN_MCP_PROJECT', $projectRoot, 'Process')
 Push-Location -LiteralPath $projectRoot
 try {
-    & node (Join-Path $projectRoot 'dist/mcp.cjs')
+    & node (Join-Path $projectRoot 'scripts/start-mcp.mjs')
     exit $LASTEXITCODE
 } finally {
     Pop-Location

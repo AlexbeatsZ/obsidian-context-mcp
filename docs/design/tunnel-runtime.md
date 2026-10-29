@@ -40,6 +40,18 @@ WebObsidian 可将 command 设为已有 Node，args 为其绝对 tsx CLI 和
 
 ## 验证与边界
 
+2026-10-28 手动恢复入口：`scripts/manual-start-mcp.ps1 -Action Start`，
+或 `npm run tunnel:manual -- -Action Status`。支持 Start/Restart/Stop/Status；
+默认 Start 不主动中断已运行的 Tunnel，只有显式 Restart 才先断开再连接，
+停止失败则拒绝启动第二个 runtime。WebObsidian 仓库的 scripts/start-mcp.ps1
+仅委托此脚本，手工 stdio 的 start-mcp.ps1 则委托原有 start-mcp.mjs。
+
+有本机 launcher 时先读取它的 operations endpoint，检查协议、loopback URL
+和 /healthz。应用不可用时 Start/Restart 明确失败且不触碰现有 Tunnel；
+可显式传 -LaunchApp 隐藏启动已安装的 WebObsidian 后有界等待。Stop 不依赖
+应用健康。脚本不安装 Node、不修改任务、凭据或 alias/ID，不新增自动重启。
+本轮未复现最初的偶发退出原因；手动恢复路径不能当作根因已解决。
+
 读取实际任务 XML，确认只有本用户登录触发器，没有 Repetition。确认启动动作
 返回成功，读取桌面快捷方式的实际目标、参数和图标。手动停止 runtime 后，
 通过真实 `.lnk` 启动恢复 ready，再确认真实远端 MCP 调用成功。

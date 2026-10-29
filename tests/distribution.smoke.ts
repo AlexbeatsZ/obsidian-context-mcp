@@ -14,6 +14,7 @@ test('desktop release installs and calls real stdio MCP without node_modules; pr
   const root=await temporary(t),project=path.join(root,'desktop with spaces'),vault=path.join(root,'My notes');
   const source=path.resolve(import.meta.dirname,'..');const version=JSON.parse(await fs.readFile(path.join(source,'manifest.json'),'utf8')).version;
   const zip=unzipSync(await fs.readFile(path.join(source,'dist',`obsidian-context-mcp-desktop-${version}.zip`)));
+  for(const entry of ['scripts/start-mcp.mjs','scripts/start-mcp.ps1','scripts/manual-start-mcp.ps1']) assert.ok(zip[entry],entry);
   assert.ok(Object.keys(zip).length>15);assert.equal(Object.keys(zip).some(x=>/(^|\/)(\.local|node_modules)(\/|$)/.test(x)),false);
   for(const [name,bytes] of Object.entries(zip)){const file=path.resolve(project,name);assert.ok(file.startsWith(project+path.sep));await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,bytes);}
   await assert.rejects(fs.access(path.join(project,'node_modules')));

@@ -6,7 +6,7 @@ configured vault, one checkout per vault and one independent runtime per host.
 
 # Current State
 
-- 2026-10-28 manual recovery script added: `scripts/manual-start-mcp.ps1` supports `Status`/`Start`/`Restart`/`EnsureTask`/`Tunnel`; `scripts/tunnel.mjs` adds `restart`, and `scripts/tunnel-startup.ps1` auto-detects `node.exe` in `-Mode Run` when `-NodePath` is omitted.
+- 2026-10-28 recovery review: manual-start-mcp.ps1 supports Start(default)/Restart/Stop/Status only; verifies configured loopback native endpoint before start/restart, never disconnects when the application is unavailable. Standard stdio PS wrapper delegates shared start-mcp.mjs. Both PS scripts now included in distribution allowlist. 60/60 Windows tests and independent extracted stdio distribution smoke pass; version0.2.1 builds/packages prepared, publication pending. Live native application was unavailable while existing Tunnel remained ready; no restart, live UI/remote call or original intermittent-failure root-cause acceptance.
 - Windows local `.local/mcp-launcher.json` now explicitly delegates the shared
   `scripts/start-mcp.mjs` to WebObsidian native stdio via existing Node/tsx and
   the desktop operations endpoint file. Without an override the old bridge is
@@ -15,7 +15,7 @@ configured vault, one checkout per vault and one independent runtime per host.
   retained; ready and native six-tool/read/context checks passed. Client UI and
   remote ChatGPT calls are not accepted. See docs/design/tunnel-runtime.md.
 
-- Version 0.2.0, MIT license. The existing `AlexbeatsZ/obsidian-context-mcp`
+- Version 0.2.1, MIT license. The existing `AlexbeatsZ/obsidian-context-mcp`
   repository is PUBLIC and v0.2.0 is published (2026-10-18), as authorized.
 - Six stdio MCP tools expose context/list/search/read/propose/status only.
   There is no model API call, remote accept/restore or shell tool.

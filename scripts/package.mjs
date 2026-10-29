@@ -12,7 +12,7 @@ await fs.mkdir(path.dirname(archive),{recursive:true});
 await fs.writeFile(archive,zipSync(files,{level:6}));
 console.log(archive);
 // Explicit allowlist: never distribute .local, credentials, notes or deployment backups.
-const portableNames=['main.js','manifest.json','styles.css','dist/mcp.cjs','dist/call.cjs','README.md','LICENSE','THIRD_PARTY_NOTICES.md','docs/DEPLOYMENT.zh-CN.md','docs/DISTRIBUTION.md','docs/API.md','docs/PRIVACY.md','scripts/deploy.mjs','scripts/rollback.mjs','scripts/doctor.mjs','scripts/configure-tunnel.mjs','scripts/tunnel.mjs','scripts/start-mcp.mjs','scripts/tunnel-startup.ps1','examples/tunnel.json','examples/tunnel.env.example'];
+const portableNames=['main.js','manifest.json','styles.css','dist/mcp.cjs','dist/call.cjs','README.md','LICENSE','THIRD_PARTY_NOTICES.md','docs/DEPLOYMENT.zh-CN.md','docs/DISTRIBUTION.md','docs/API.md','docs/PRIVACY.md','scripts/deploy.mjs','scripts/rollback.mjs','scripts/doctor.mjs','scripts/configure-tunnel.mjs','scripts/tunnel.mjs','scripts/start-mcp.mjs','scripts/start-mcp.ps1','scripts/manual-start-mcp.ps1','scripts/tunnel-startup.ps1','examples/tunnel.json','examples/tunnel.env.example'];
 const portable=Object.fromEntries(await Promise.all(portableNames.map(async name=>[name,new Uint8Array(await fs.readFile(path.join(project,name)))])));
 portable['README.md']=new TextEncoder().encode(new TextDecoder().decode(portable['README.md']).replaceAll('(docs/ACCEPTANCE.md)','(https://github.com/AlexbeatsZ/obsidian-context-mcp/blob/main/docs/ACCEPTANCE.md)').replaceAll('(docs/OPERATIONS.md)','(https://github.com/AlexbeatsZ/obsidian-context-mcp/blob/main/docs/OPERATIONS.md)'));
 const pkg=JSON.parse(await fs.readFile(path.join(project,'package.json'),'utf8'));
